@@ -1112,13 +1112,35 @@ async function forgotPassword() {
 function signInWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
   setAuthLoading(true, 'Opening Google sign-in…');
-  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() =>
-    auth.signInWithPopup(provider)
-  ).catch((err) => {
-    if (err.code === 'auth/popup-closed-by-user') { setAuthLoading(false); return; }
-    showAuthError(friendlyError(err.code));
-    console.error(err);
-  });
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+    .then(() => auth.signInWithPopup(provider))
+    .catch((err) => {
+      if (err.code === 'auth/popup-closed-by-user') {
+        setAuthLoading(false); return;
+      }
+      if (err.code === 'auth/popup-blocked') {
+        // Browser blocked the popup — fall back to full-page redirect
+        setAuthLoading(true, 'Redirecting to Google…');
+        sessionStorage.setItem('gSignInPending', '1');
+        auth.signInWithRedirect(provider);
+        return;
+      }
+      showAuthError(friendlyError(err.code));
+      console.error(err);
+    });
+}
+
+// Handle return from redirect (popup-blocked fallback)
+if (sessionStorage.getItem('gSignInPending')) {
+  setAuthLoading(true, 'Completing sign-in…');
+  sessionStorage.removeItem('gSignInPending');
+  const t = setTimeout(() => showAuthError('Sign-in timed out. Please try again.'), 12000);
+  auth.getRedirectResult()
+    .then(result => {
+      clearTimeout(t);
+      if (!result || !result.user) setAuthLoading(false);
+    })
+    .catch(err => { clearTimeout(t); showAuthError(friendlyError(err.code)); });
 }
 
 function signOutUser() {
