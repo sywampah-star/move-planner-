@@ -1793,6 +1793,29 @@ const SANDRA_DATA = {
       { id: 'm6', label: 'TSA-approved luggage locks', note: 'Required for US-bound checked bags', tag: 'bring', checked: false },
       { id: 'm7', label: 'Luggage tags', note: 'Label all bags with your Ithaca address', tag: 'bring', checked: false },
     ]},
+    { id: 'food', title: 'Food & Snacks', urgent: false, items: [
+      { id: 'f1',  label: 'Shito (sealed jar)',                          note: 'Declare at US customs — sealed jars are usually fine', tag: 'bring', checked: false },
+      { id: 'f2',  label: 'Gari / kivo gari',                           note: '', tag: 'bring', checked: false },
+      { id: 'f3',  label: 'Groundnut',                                   note: 'Roasted and sealed', tag: 'bring', checked: false },
+      { id: 'f4',  label: 'Milo tin or sachets',                        note: '', tag: 'bring', checked: false },
+      { id: 'f5',  label: 'Maggi seasoning cubes',                      note: '', tag: 'bring', checked: false },
+      { id: 'f6',  label: 'Cooking spices',                             note: 'Sealed and dry', tag: 'bring', checked: false },
+      { id: 'f7',  label: 'Dried / ground crayfish',                    note: 'Must be fully dried — declare at customs', tag: 'bring', checked: false },
+      { id: 'f8',  label: 'Ground pepper (dry, not fresh)',              note: 'Dry only — fresh peppers are not allowed', tag: 'bring', checked: false },
+      { id: 'f9',  label: 'Indomie noodles (a few packs)',              note: '', tag: 'bring', checked: false },
+      { id: 'f10', label: 'Tinned / canned fish (sardines, tuna, mackerel)', note: 'Canned is fine; must be commercially sealed', tag: 'bring', checked: false },
+      { id: 'f11', label: 'Groundnut paste',                            note: 'Sealed jar', tag: 'bring', checked: false },
+      { id: 'f12', label: 'Kelewele spice blend',                       note: '', tag: 'bring', checked: false },
+      { id: 'f13', label: 'Suya powder',                                note: '', tag: 'bring', checked: false },
+      { id: 'f14', label: 'Tom Brown / Hausa koko powder',              note: '', tag: 'bring', checked: false },
+      { id: 'f15', label: 'Plantain chips',                             note: 'Declare — commercially packaged is fine', tag: 'bring', checked: false },
+      { id: 'f16', label: 'Ghanaian biscuits (any favourites)',         note: '', tag: 'bring', checked: false },
+      { id: 'f17', label: 'Cerelac',                                    note: '', tag: 'bring', checked: false },
+      { id: 'f18', label: 'Nido powdered milk',                        note: '', tag: 'bring', checked: false },
+      { id: 'f19', label: 'Lipton tea / preferred teabags',             note: '', tag: 'bring', checked: false },
+      { id: 'f20', label: 'Fan choco',                                  note: '', tag: 'bring', checked: false },
+      { id: 'f21', label: 'Chocolate (Kingsbite)',                      note: '', tag: 'bring', checked: false },
+    ]},
   ],
   budgetSections: [
     { id: 'arrival', title: 'Arrival month', type: 'arrival', items: [
@@ -2216,7 +2239,6 @@ document.addEventListener('pointermove', e => {
   document.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(el => el.classList.remove('drag-over-top','drag-over-bottom'));
   const target = under?.closest(`[data-dnd-type="${dnd.type}"]`);
   if (!target || target.dataset.dndId === dnd.id) return;
-  if (dnd.type === 'item' && target.dataset.dndSec !== dnd.secId) return;
   if (dnd.type === 'budget-item' && target.dataset.dndSec !== dnd.secId) return;
   const mid = target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
   target.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bottom');
@@ -2293,9 +2315,18 @@ function dndDrop(type, fromId, toId, fromSec, toSec, before) {
     reorder(STATE.packSections, fromId, toId);
     saveToFirebase(); renderPacking();
   } else if (type === 'item') {
-    if (fromSec !== toSec) return;
-    const sec = STATE.packSections.find(s => s.id === fromSec);
-    reorder(sec.items, fromId, toId);
+    if (fromSec === toSec) {
+      const sec = STATE.packSections.find(s => s.id === fromSec);
+      reorder(sec.items, fromId, toId);
+    } else {
+      const fromSection = STATE.packSections.find(s => s.id === fromSec);
+      const toSection   = STATE.packSections.find(s => s.id === toSec);
+      if (!fromSection || !toSection) return;
+      const fi = fromSection.items.findIndex(i => i.id === fromId);
+      const [item] = fromSection.items.splice(fi, 1);
+      const ti = toSection.items.findIndex(i => i.id === toId);
+      toSection.items.splice(before ? ti : ti + 1, 0, item);
+    }
     saveToFirebase(); renderPacking();
   } else if (type === 'budget-section') {
     reorder(STATE.budgetSections, fromId, toId);
@@ -2678,7 +2709,7 @@ function renderFlights() {
 
   // ── 4. CARRY-ON SUMMARY ────────────────────────────────────────
   const coItems = STATE.packSections.flatMap(s =>
-    s.items.filter(i => i.carryOn).map(i => ({ ...i, secTitle: s.title }))
+    s.items.filter(i => i.carryOn).map(i => ({ ...i, secId: s.id, secTitle: s.title }))
   );
   // Filter suggestions to exclude labels already in the carry-on list
   const coLabels = new Set(coItems.map(i => i.label.toLowerCase()));
@@ -2693,10 +2724,12 @@ function renderFlights() {
   if (!coItems.length) {
     coLines.push('<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:4px 0">No items marked as carry-on yet. Use the suggestions below, or go to Packing and tap ✈ on any item.</div>');
   } else {
+    const coDone = coItems.filter(i => i.checked).length;
+    coLines.push(`<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">${coDone}/${coItems.length} packed</div>`);
     coItems.forEach(item => {
-      coLines.push(`<div class="co-item">
-        <span style="font-size:15px">✈</span>
-        <span style="flex:1">${item.label}</span>
+      coLines.push(`<div class="co-item ${item.checked ? 'is-done' : ''}">
+        <div class="pack-check ${item.checked ? 'checked' : ''}" onclick="togglePackItem('${item.secId}','${item.id}')" style="flex-shrink:0"></div>
+        <span style="flex:1;${item.checked ? 'text-decoration:line-through;color:var(--text-muted)' : ''}">${item.label}</span>
         <span class="co-sec-label">${item.secTitle}</span>
       </div>`);
     });
@@ -2889,13 +2922,15 @@ function addCarryOnSuggestion(idx) {
   const visible = CARRY_ON_SUGGESTIONS.filter(s => !coLabels.has(s.label.toLowerCase()));
   const s = visible[idx];
   if (!s) return;
-  // Add to first packing section (or create one if empty)
-  if (!STATE.packSections.length) {
-    STATE.packSections.push({ id: uid(), title: 'General', urgent: false, items: [] });
+  // Find or create a dedicated Carry-on section
+  let coSec = STATE.packSections.find(s => s.id === 'carry-on' || s.title === 'Carry-on');
+  if (!coSec) {
+    coSec = { id: 'carry-on', title: 'Carry-on', urgent: true, items: [] };
+    STATE.packSections.unshift(coSec);
   }
-  STATE.packSections[0].items.push({ id: uid(), label: s.label, note: s.note, tag: 'bring', checked: false, carryOn: true });
+  coSec.items.push({ id: uid(), label: s.label, note: s.note, tag: 'bring', checked: false, carryOn: true });
   saveToFirebase();
-  showToast(`"${s.label}" added to ${STATE.packSections[0].title} ✈`);
+  showToast(`"${s.label}" added to carry-on ✈`);
   renderFlights();
   renderPacking();
 }
