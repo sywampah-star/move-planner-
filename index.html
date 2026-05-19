@@ -113,37 +113,78 @@
     font-size: 13px; color: var(--text-muted);
     margin-bottom: 24px;
   }
-  .auth-desc {
-    font-size: 13px; color: var(--text-secondary);
-    line-height: 1.6; margin-bottom: 28px;
+  .auth-tabs {
+    display: flex; background: var(--cream-dark);
+    border-radius: 10px; padding: 3px; margin-bottom: 20px;
+  }
+  .auth-tab {
+    flex: 1; padding: 8px 12px; border: none; background: none;
+    border-radius: 8px; font-size: 13px; font-weight: 500;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    color: var(--text-muted); transition: all 0.18s;
+  }
+  .auth-tab.active {
+    background: var(--white); color: var(--text-primary);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  .auth-input {
+    width: 100%; padding: 11px 14px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    background: var(--white); color: var(--text-primary);
+    outline: none; transition: border-color 0.15s;
+    display: block; margin-bottom: 10px;
+  }
+  .auth-input:focus { border-color: var(--terracotta); }
+  .auth-submit {
+    width: 100%; padding: 12px;
+    border: none; border-radius: 10px;
+    background: var(--terracotta); color: #fff;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: background 0.15s; margin-bottom: 4px;
+  }
+  .auth-submit:hover { background: var(--terracotta-light); }
+  .auth-remember {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text-secondary);
+    margin-bottom: 14px; cursor: pointer; user-select: none;
+  }
+  .auth-remember input[type=checkbox] { cursor: pointer; accent-color: var(--terracotta); width: 15px; height: 15px; }
+  .auth-divider {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--text-muted); font-size: 12px; margin: 16px 0;
+  }
+  .auth-divider::before, .auth-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
   }
   .btn-google {
     display: flex; align-items: center; justify-content: center; gap: 10px;
-    width: 100%; padding: 12px 20px;
+    width: 100%; padding: 11px 20px;
     background: var(--white); border: 1.5px solid var(--border);
     border-radius: 10px; cursor: pointer;
-    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
     color: var(--text-primary); transition: all 0.2s;
-    box-shadow: var(--shadow);
   }
-  .btn-google:hover { border-color: var(--terracotta); box-shadow: 0 4px 16px rgba(193,96,58,0.15); }
-  .btn-google:active { transform: scale(0.99); }
-  .btn-google svg { width: 18px; height: 18px; flex-shrink: 0; }
-  .auth-note {
-    font-size: 11px; color: var(--text-muted); margin-top: 20px;
-  }
+  .btn-google:hover { border-color: var(--terracotta); }
+  .btn-google svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .auth-note { font-size: 11px; color: var(--text-muted); margin-top: 16px; }
   .auth-loading {
     display: flex; align-items: center; justify-content: center; gap: 8px;
-    font-size: 13px; color: var(--text-muted); margin-top: 16px;
-    min-height: 20px;
+    font-size: 13px; color: var(--text-muted); margin-top: 12px; min-height: 20px;
   }
+  .auth-forgot {
+    text-align: right; margin-bottom: 14px; margin-top: -4px;
+  }
+  .auth-forgot button {
+    background: none; border: none; font-size: 12px;
+    color: var(--terracotta); cursor: pointer; font-family: 'DM Sans', sans-serif;
+    padding: 0;
+  }
+  .auth-forgot button:hover { text-decoration: underline; }
   .spinner {
-    width: 16px; height: 16px;
-    border: 2px solid var(--border);
-    border-top-color: var(--terracotta);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    display: none;
+    width: 16px; height: 16px; border: 2px solid var(--border);
+    border-top-color: var(--terracotta); border-radius: 50%;
+    animation: spin 0.7s linear infinite; display: none;
   }
   .spinner.active { display: block; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -651,24 +692,51 @@
 <div id="auth-overlay" class="auth-overlay">
   <div class="auth-card">
     <div class="auth-logo">move<span>wise</span></div>
-    <p class="auth-subtitle">Your move planning companion</p>
-    <p class="auth-desc">Sign in to save your progress and sync across all your devices.</p>
+    <p class="auth-subtitle">Your personal move planning companion</p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="auth-tab-signin" onclick="switchAuthTab('signin')">Sign in</button>
+      <button class="auth-tab" id="auth-tab-signup" onclick="switchAuthTab('signup')">Create account</button>
+    </div>
+
+    <!-- Sign in -->
+    <div id="auth-form-signin">
+      <input class="auth-input" type="email" id="signin-email" placeholder="Email address" autocomplete="email">
+      <input class="auth-input" type="password" id="signin-password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')signInWithEmail()">
+      <div class="auth-forgot"><button onclick="forgotPassword()">Forgot password?</button></div>
+      <label class="auth-remember">
+        <input type="checkbox" id="signin-remember" checked>
+        Keep me signed in
+      </label>
+      <button class="auth-submit" onclick="signInWithEmail()">Sign in</button>
+    </div>
+
+    <!-- Create account -->
+    <div id="auth-form-signup" style="display:none">
+      <input class="auth-input" type="email" id="signup-email" placeholder="Email address" autocomplete="email">
+      <input class="auth-input" type="password" id="signup-password" placeholder="Password (min 6 characters)" autocomplete="new-password">
+      <input class="auth-input" type="password" id="signup-confirm" placeholder="Confirm password" autocomplete="new-password" onkeydown="if(event.key==='Enter')createAccount()">
+      <button class="auth-submit" onclick="createAccount()">Create account</button>
+    </div>
+
+    <div class="auth-divider"><span>or</span></div>
+
     <button class="btn-google" id="btn-google" onclick="signInWithGoogle()">
-      <!-- Google logo SVG -->
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
       </svg>
-      Sign in with Google
+      Continue with Google
     </button>
+
     <div class="auth-loading">
       <div class="spinner" id="auth-spinner"></div>
       <span id="auth-loading-text"></span>
     </div>
-    <p class="auth-error" id="auth-error" style="font-size:12px;color:var(--terracotta);margin-top:12px;display:none;line-height:1.5"></p>
-    <p class="auth-note">Your data is stored privately under your Google account.</p>
+    <p id="auth-error" style="font-size:12px;color:var(--terracotta);margin-top:10px;display:none;line-height:1.5;text-align:center"></p>
+    <p class="auth-note">Your data is stored privately under your account.</p>
   </div>
 </div>
 
@@ -963,80 +1031,94 @@ let saveTimer = null;
 // ============================================================
 // AUTH
 // ============================================================
+// ---- Auth UI helpers ----
+function switchAuthTab(tab) {
+  document.getElementById('auth-tab-signin').classList.toggle('active', tab === 'signin');
+  document.getElementById('auth-tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('auth-form-signin').style.display = tab === 'signin' ? 'block' : 'none';
+  document.getElementById('auth-form-signup').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
 function setAuthLoading(on, msg) {
-  const spinner = document.getElementById('auth-spinner');
-  const loadingText = document.getElementById('auth-loading-text');
+  document.getElementById('auth-spinner').classList.toggle('active', on);
+  document.getElementById('auth-loading-text').textContent = on ? (msg || '') : '';
   const btn = document.getElementById('btn-google');
-  const errEl = document.getElementById('auth-error');
-  if (on) {
-    spinner.classList.add('active');
-    loadingText.textContent = msg || '';
-    if (btn) btn.style.opacity = '0.5';
-    errEl.style.display = 'none';
-  } else {
-    spinner.classList.remove('active');
-    loadingText.textContent = '';
-    if (btn) btn.style.opacity = '1';
-  }
+  if (btn) btn.style.opacity = on ? '0.5' : '1';
+  if (on) document.getElementById('auth-error').style.display = 'none';
 }
 
 function showAuthError(msg) {
   setAuthLoading(false);
-  const errEl = document.getElementById('auth-error');
-  errEl.textContent = msg;
-  errEl.style.display = 'block';
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
 }
 
+function friendlyError(code) {
+  return ({
+    'auth/invalid-email': 'That email address doesn\'t look right.',
+    'auth/user-not-found': 'No account found with that email.',
+    'auth/wrong-password': 'Incorrect password. Please try again.',
+    'auth/invalid-credential': 'Incorrect email or password.',
+    'auth/email-already-in-use': 'An account with this email already exists — try signing in.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.',
+    'auth/network-request-failed': 'Network error. Check your connection.',
+    'auth/popup-closed-by-user': 'Sign-in was cancelled.',
+    'auth/unauthorized-domain': 'This domain isn\'t authorised. Add it in Firebase Console → Authentication → Authorized domains.',
+  })[code] || 'Something went wrong (' + code + '). Please try again.';
+}
+
+// ---- Email/password auth ----
+async function signInWithEmail() {
+  const email    = document.getElementById('signin-email').value.trim();
+  const password = document.getElementById('signin-password').value;
+  const remember = document.getElementById('signin-remember').checked;
+  if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
+  setAuthLoading(true, 'Signing in…');
+  try {
+    await auth.setPersistence(remember
+      ? firebase.auth.Auth.Persistence.LOCAL
+      : firebase.auth.Auth.Persistence.SESSION);
+    await auth.signInWithEmailAndPassword(email, password);
+  } catch (e) { showAuthError(friendlyError(e.code)); }
+}
+
+async function createAccount() {
+  const email    = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const confirm  = document.getElementById('signup-confirm').value;
+  if (!email || !password) { showAuthError('Please fill in all fields.'); return; }
+  if (password !== confirm)  { showAuthError('Passwords don\'t match.'); return; }
+  if (password.length < 6)   { showAuthError('Password must be at least 6 characters.'); return; }
+  setAuthLoading(true, 'Creating account…');
+  try {
+    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    await auth.createUserWithEmailAndPassword(email, password);
+  } catch (e) { showAuthError(friendlyError(e.code)); }
+}
+
+async function forgotPassword() {
+  const email = document.getElementById('signin-email').value.trim();
+  if (!email) { showAuthError('Enter your email address first, then click Forgot password.'); return; }
+  try {
+    await auth.sendPasswordResetEmail(email);
+    showAuthError(''); // clear errors
+    document.getElementById('auth-loading-text').textContent = 'Reset email sent — check your inbox.';
+  } catch (e) { showAuthError(friendlyError(e.code)); }
+}
+
+// ---- Google auth ----
 function signInWithGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
   setAuthLoading(true, 'Opening Google sign-in…');
-
-  // Try popup first — instant and reliable when domain is authorized
-  auth.signInWithPopup(provider)
-    .then(() => { /* onAuthStateChanged fires automatically */ })
-    .catch((err) => {
-      if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
-        // Popup was blocked — fall back to redirect
-        setAuthLoading(true, 'Redirecting to Google…');
-        sessionStorage.setItem('gSignInPending', '1');
-        auth.signInWithRedirect(provider);
-      } else if (err.code === 'auth/unauthorized-domain') {
-        showAuthError('This site isn\'t authorised in Firebase yet. Go to Firebase Console → Authentication → Settings → Authorized domains and add your GitHub Pages domain.');
-      } else {
-        showAuthError('Sign-in failed (' + err.code + '). Please try again.');
-        console.error(err);
-      }
-    });
-}
-
-// Handle returning from a redirect sign-in (fallback path)
-if (sessionStorage.getItem('gSignInPending')) {
-  setAuthLoading(true, 'Completing sign-in…');
-  sessionStorage.removeItem('gSignInPending');
-
-  // Timeout: if Firebase hangs for 10 s, show an actionable error
-  const redirectTimeout = setTimeout(() => {
-    showAuthError('Sign-in timed out. This usually means your site\'s domain isn\'t added to Firebase → Authentication → Settings → Authorized domains. Add it and try again.');
-  }, 10000);
-
-  auth.getRedirectResult()
-    .then((result) => {
-      clearTimeout(redirectTimeout);
-      if (!result || !result.user) {
-        // Came back but no user — domain likely not authorised
-        showAuthError('Sign-in couldn\'t complete. Make sure your GitHub Pages domain is added in Firebase → Authentication → Settings → Authorized domains, then try again.');
-      }
-      // If result.user exists, onAuthStateChanged handles the rest
-    })
-    .catch((err) => {
-      clearTimeout(redirectTimeout);
-      if (err.code === 'auth/unauthorized-domain') {
-        showAuthError('Domain not authorised. Go to Firebase Console → Authentication → Settings → Authorized domains and add: ' + location.hostname);
-      } else {
-        showAuthError('Sign-in failed (' + err.code + '). Please try again.');
-        console.error(err);
-      }
-    });
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() =>
+    auth.signInWithPopup(provider)
+  ).catch((err) => {
+    if (err.code === 'auth/popup-closed-by-user') { setAuthLoading(false); return; }
+    showAuthError(friendlyError(err.code));
+    console.error(err);
+  });
 }
 
 function signOutUser() {
