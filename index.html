@@ -639,6 +639,14 @@
 
   /* RESPONSIVE */
   @media (max-width: 640px) {
+    /* Disable accidental contenteditable editing on touch devices.
+       Users read and check items on mobile; editing is a desktop action. */
+    [contenteditable="true"] {
+      pointer-events: none;
+      -webkit-user-select: text;
+      user-select: text;
+      cursor: default;
+    }
     .tabs-bar { display: none; }
     .mobile-nav { display: block; }
     .main { padding: 16px 14px 90px; }
@@ -1476,7 +1484,8 @@ function renderPacking() {
         <div style="display:flex;gap:6px;align-items:center">
           <span style="font-size:11px;color:var(--text-muted)">${done}/${sec.items.length}</span>
           <button class="btn btn-sm" onclick="openAddItemForm('${sec.id}')">+ Add item</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteSection('${sec.id}')">Remove</button>
+          <span style="width:1px;height:20px;background:var(--border-light);display:inline-block;margin:0 2px"></span>
+          <button class="btn btn-sm" onclick="deleteSection('${sec.id}')" style="color:var(--text-muted);border-color:transparent;background:transparent;font-size:11px" title="Delete category">Delete</button>
         </div>
       </div>
       <div class="section-body ${isCollapsed ? 'collapsed' : ''}" id="sec-body-${sec.id}">
@@ -1602,10 +1611,12 @@ function renderBudget() {
   });
   const arrivalTotal = STATE.budgetItems.filter(i=>i.type==='arrival').reduce((a,i)=>a+i.amount,0);
   const monthlyTotal = STATE.budgetItems.filter(i=>i.type==='monthly').reduce((a,i)=>a+i.amount,0);
+  const firstMonthTotal = arrivalTotal + monthlyTotal;
+  const yearOneTotal = arrivalTotal + (monthlyTotal * 12);
   document.getElementById('budget-stats').innerHTML = `
-    <div class="stat-card"><div class="stat-num">$${arrivalTotal.toLocaleString()}</div><div class="stat-label">Arrival month</div></div>
-    <div class="stat-card"><div class="stat-num">$${monthlyTotal.toLocaleString()}</div><div class="stat-label">Monthly ongoing</div></div>
-    <div class="stat-card"><div class="stat-num">$${(arrivalTotal+monthlyTotal).toLocaleString()}</div><div class="stat-label">Combined total</div></div>
+    <div class="stat-card"><div class="stat-num">$${arrivalTotal.toLocaleString()}</div><div class="stat-label">One-time costs</div></div>
+    <div class="stat-card"><div class="stat-num">$${monthlyTotal.toLocaleString()}</div><div class="stat-label">Per month</div></div>
+    <div class="stat-card" title="One-time costs + first month of ongoing expenses"><div class="stat-num">$${firstMonthTotal.toLocaleString()}</div><div class="stat-label">First month total</div></div>
   `;
   const arrivalItems = visible.filter(i => i.type === 'arrival');
   const monthlyItems = visible.filter(i => i.type === 'monthly');
