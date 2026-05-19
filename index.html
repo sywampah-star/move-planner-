@@ -458,7 +458,6 @@
     padding: 8px 0; border-top: 1px solid var(--border-light);
   }
   .budget-row:first-of-type { border-top: none; }
-  .budget-icon { font-size: 15px; color: var(--text-muted); width: 20px; flex-shrink: 0; }
   .budget-info { flex: 1; min-width: 0; }
   .budget-label { font-size: 13px; color: var(--text-primary); }
   .budget-note { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
@@ -1672,7 +1671,6 @@ function budgetRowHTML(item, maxAmt) {
   const isEditable = !item.id.startsWith('_');
   const color = item.type === 'arrival' ? 'var(--terracotta)' : 'var(--amber)';
   return `<div class="budget-row">
-    <span class="budget-icon">${item.icon || '•'}</span>
     <div class="budget-info">
       <div class="budget-label">${item.label}</div>
       <div class="budget-note">${item.note || ''}</div>
@@ -1696,7 +1694,7 @@ function confirmAddBudget() {
   const amount = parseInt(document.getElementById('new-budget-amount').value) || 0;
   const type = document.getElementById('new-budget-type').value;
   if (!label) return;
-  STATE.budgetItems.push({ id: uid(), label, note, type, amount, icon: type === 'arrival' ? '📦' : '🔄' });
+  STATE.budgetItems.push({ id: uid(), label, note, type, amount });
   closeModal('add-budget-modal');
   ['new-budget-label','new-budget-note','new-budget-amount'].forEach(id => document.getElementById(id).value = '');
   saveToFirebase();
