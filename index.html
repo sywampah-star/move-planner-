@@ -490,6 +490,25 @@
     box-shadow: 0 1px 4px rgba(193,96,58,0.3);
   }
 
+  /* REORDER BUTTONS */
+  .reorder-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 10px; color: var(--text-muted);
+    padding: 1px 4px; line-height: 1;
+    border-radius: 3px; transition: all 0.15s;
+  }
+  .reorder-btn:hover:not(:disabled) { color: var(--terracotta); background: var(--terracotta-pale); }
+  .reorder-btn:disabled { opacity: 0.2; cursor: default; }
+  .reorder-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+
+  /* CURRENCY SELECT */
+  .currency-select {
+    font-family: 'DM Sans', sans-serif; font-size: 12px;
+    padding: 5px 10px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--white);
+    color: var(--text-secondary); cursor: pointer; outline: none;
+  }
+
   /* EDITABLE AMOUNT */
   .editable-amount {
     cursor: pointer; border-radius: 6px; padding: 2px 6px; margin: -2px -6px;
@@ -807,10 +826,11 @@
   <div id="tab-budget" class="tab-content">
     <div class="stats-row" id="budget-stats"></div>
 
-    <div class="filter-row">
+    <div class="filter-row" style="flex-wrap:wrap;gap:6px;align-items:center">
       <button class="filter-pill active" onclick="setBudgetFilter('all',this)">All</button>
       <button class="filter-pill" onclick="setBudgetFilter('arrival',this)">Arrival month</button>
       <button class="filter-pill" onclick="setBudgetFilter('monthly',this)">Monthly ongoing</button>
+      <select class="currency-select" id="currency-select" onchange="setCurrency(this.value)" title="Currency"></select>
     </div>
 
     <div id="budget-sections"></div>
@@ -1423,6 +1443,32 @@ function toggleSectionCollapse(secId) {
 }
 
 // ============================================================
+// CURRENCY
+// ============================================================
+const CURRENCIES = {
+  USD: { symbol: '$',  name: 'US Dollar' },
+  GBP: { symbol: '£',  name: 'British Pound' },
+  EUR: { symbol: '€',  name: 'Euro' },
+  GHS: { symbol: '₵',  name: 'Ghanaian Cedi' },
+  CAD: { symbol: 'CA$', name: 'Canadian Dollar' },
+  AUD: { symbol: 'A$',  name: 'Australian Dollar' },
+  NGN: { symbol: '₦',  name: 'Nigerian Naira' },
+  KES: { symbol: 'KSh', name: 'Kenyan Shilling' },
+};
+let selectedCurrency = localStorage.getItem('mw-currency') || 'USD';
+
+function fmt(amount) {
+  const c = CURRENCIES[selectedCurrency] || CURRENCIES.USD;
+  return c.symbol + amount.toLocaleString();
+}
+
+function setCurrency(code) {
+  selectedCurrency = code;
+  localStorage.setItem('mw-currency', code);
+  renderBudget();
+}
+
+// ============================================================
 // UTILS
 // ============================================================
 function uid() { return Math.random().toString(36).slice(2,8); }
@@ -1461,7 +1507,8 @@ function renderPacking() {
   `;
   const wrap = document.getElementById('pack-sections');
   wrap.innerHTML = '';
-  STATE.packSections.forEach(sec => {
+  const totalSections = STATE.packSections.length;
+  STATE.packSections.forEach((sec, secIdx) => {
     const filtered = sec.items.filter(item => {
       if (packFilter === 'bring') return item.tag === 'bring';
       if (packFilter === 'buy') return item.tag === 'buy';
@@ -1476,10 +1523,16 @@ function renderPacking() {
     div.innerHTML = `
       <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%"></div></div>
       <div class="card-header">
-        <div class="card-title" style="cursor:pointer;user-select:none" onclick="toggleSectionCollapse('${sec.id}')">
-          <button class="section-toggle ${isCollapsed ? 'collapsed' : ''}" id="sec-toggle-${sec.id}" tabindex="-1">▾</button>
-          ${sec.title}
-          ${sec.urgent ? '<span class="badge badge-urgent">urgent</span>' : ''}
+        <div style="display:flex;align-items:center;gap:4px">
+          <div class="reorder-col">
+            <button class="reorder-btn" onclick="moveSection('${sec.id}',-1)" ${secIdx === 0 ? 'disabled' : ''} title="Move up">▲</button>
+            <button class="reorder-btn" onclick="moveSection('${sec.id}',1)" ${secIdx === totalSections - 1 ? 'disabled' : ''} title="Move down">▼</button>
+          </div>
+          <div class="card-title" style="cursor:pointer;user-select:none" onclick="toggleSectionCollapse('${sec.id}')">
+            <button class="section-toggle ${isCollapsed ? 'collapsed' : ''}" id="sec-toggle-${sec.id}" tabindex="-1">▾</button>
+            ${sec.title}
+            ${sec.urgent ? '<span class="badge badge-urgent">urgent</span>' : ''}
+          </div>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
           <span style="font-size:11px;color:var(--text-muted)">${done}/${sec.items.length}</span>
@@ -1490,8 +1543,14 @@ function renderPacking() {
       </div>
       <div class="section-body ${isCollapsed ? 'collapsed' : ''}" id="sec-body-${sec.id}">
         ${filtered.length === 0 ? '<div class="empty-state"><p>No items match this filter.</p></div>' :
-          filtered.map(item => `
+          filtered.map((item, itemIdx) => {
+            const totalFiltered = filtered.length;
+            return `
             <div class="pack-item" id="pi-${item.id}">
+              <div class="reorder-col" style="margin-right:2px">
+                <button class="reorder-btn" onclick="movePackItem('${sec.id}','${item.id}',-1)" ${itemIdx === 0 ? 'disabled' : ''} title="Move up">▲</button>
+                <button class="reorder-btn" onclick="movePackItem('${sec.id}','${item.id}',1)" ${itemIdx === totalFiltered - 1 ? 'disabled' : ''} title="Move down">▼</button>
+              </div>
               <div class="pack-check ${item.checked ? 'checked' : ''}" onclick="togglePackItem('${sec.id}','${item.id}')"></div>
               <div style="flex:1;min-width:0">
                 <div class="pack-label ${item.checked ? 'done' : ''}" contenteditable="true"
@@ -1507,7 +1566,7 @@ function renderPacking() {
                 <button class="btn btn-sm btn-danger" onclick="deletePackItem('${sec.id}','${item.id}')">×</button>
               </div>
             </div>
-          `).join('')
+          `}).join('')
         }
         <div class="add-form" id="add-form-${sec.id}">
           <div class="form-row">
@@ -1589,6 +1648,41 @@ function confirmAddItem(secId) {
   saveToFirebase();
   renderPacking(); showToast('Item added');
 }
+function moveBudgetItem(itemId, dir) {
+  const idx = STATE.budgetItems.findIndex(i => i.id === itemId);
+  const item = STATE.budgetItems[idx];
+  // only move within same type group
+  const sameType = STATE.budgetItems.filter(i => i.type === item.type);
+  const typeIdx = sameType.findIndex(i => i.id === itemId);
+  const swapTypeIdx = typeIdx + dir;
+  if (swapTypeIdx < 0 || swapTypeIdx >= sameType.length) return;
+  // find global indices
+  const swapId = sameType[swapTypeIdx].id;
+  const swapIdx = STATE.budgetItems.findIndex(i => i.id === swapId);
+  [STATE.budgetItems[idx], STATE.budgetItems[swapIdx]] = [STATE.budgetItems[swapIdx], STATE.budgetItems[idx]];
+  saveToFirebase();
+  renderBudget();
+}
+
+function moveSection(secId, dir) {
+  const idx = STATE.packSections.findIndex(s => s.id === secId);
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= STATE.packSections.length) return;
+  [STATE.packSections[idx], STATE.packSections[swapIdx]] = [STATE.packSections[swapIdx], STATE.packSections[idx]];
+  saveToFirebase();
+  renderPacking();
+}
+
+function movePackItem(secId, itemId, dir) {
+  const sec = STATE.packSections.find(s => s.id === secId);
+  const idx = sec.items.findIndex(i => i.id === itemId);
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= sec.items.length) return;
+  [sec.items[idx], sec.items[swapIdx]] = [sec.items[swapIdx], sec.items[idx]];
+  saveToFirebase();
+  renderPacking();
+}
+
 function openAddSectionModal() { openModal('add-section-modal'); }
 function confirmAddSection() {
   const name = document.getElementById('new-section-name').value.trim();
@@ -1614,28 +1708,35 @@ function renderBudget() {
   const firstMonthTotal = arrivalTotal + monthlyTotal;
   const yearOneTotal = arrivalTotal + (monthlyTotal * 12);
   document.getElementById('budget-stats').innerHTML = `
-    <div class="stat-card"><div class="stat-num">$${arrivalTotal.toLocaleString()}</div><div class="stat-label">One-time costs</div></div>
-    <div class="stat-card"><div class="stat-num">$${monthlyTotal.toLocaleString()}</div><div class="stat-label">Per month</div></div>
-    <div class="stat-card" title="One-time costs + first month of ongoing expenses"><div class="stat-num">$${firstMonthTotal.toLocaleString()}</div><div class="stat-label">First month total</div></div>
+    <div class="stat-card"><div class="stat-num">${fmt(arrivalTotal)}</div><div class="stat-label">One-time costs</div></div>
+    <div class="stat-card"><div class="stat-num">${fmt(monthlyTotal)}</div><div class="stat-label">Per month</div></div>
+    <div class="stat-card" title="One-time costs + first month of ongoing expenses"><div class="stat-num">${fmt(firstMonthTotal)}</div><div class="stat-label">First month total</div></div>
   `;
+  // Keep currency selector in sync
+  const sel = document.getElementById('currency-select');
+  if (sel && sel.value !== selectedCurrency) sel.value = selectedCurrency;
   const arrivalItems = visible.filter(i => i.type === 'arrival');
   const monthlyItems = visible.filter(i => i.type === 'monthly');
   let html = '';
   if (arrivalItems.length) {
     html += '<div class="section-header">Arrival month — one-time costs</div><div class="card">';
-    html += arrivalItems.map(item => budgetRowHTML(item)).join('');
+    html += arrivalItems.map((item, idx) => budgetRowHTML(item, idx, arrivalItems.length)).join('');
     html += '</div>';
   }
   if (monthlyItems.length) {
     html += '<div class="section-header">Monthly ongoing</div><div class="card">';
-    html += monthlyItems.map(item => budgetRowHTML(item)).join('');
+    html += monthlyItems.map((item, idx) => budgetRowHTML(item, idx, monthlyItems.length)).join('');
     html += '</div>';
   }
   if (!visible.length) html = '<div class="empty-state"><div class="icon" style="font-size:32px;margin-bottom:8px">💰</div><p>No items. Add a budget line to get started.</p></div>';
   document.getElementById('budget-sections').innerHTML = html;
 }
-function budgetRowHTML(item) {
+function budgetRowHTML(item, typeIdx, typeTotal) {
   return `<div class="budget-row">
+    <div class="reorder-col" style="margin-right:4px">
+      <button class="reorder-btn" onclick="moveBudgetItem('${item.id}',-1)" ${typeIdx === 0 ? 'disabled' : ''} title="Move up">▲</button>
+      <button class="reorder-btn" onclick="moveBudgetItem('${item.id}',1)" ${typeIdx === typeTotal - 1 ? 'disabled' : ''} title="Move down">▼</button>
+    </div>
     <div class="budget-info" style="flex:1;min-width:0">
       <div class="budget-label">${item.label}</div>
       <div class="budget-note" contenteditable="true"
@@ -1646,7 +1747,7 @@ function budgetRowHTML(item) {
         >${item.note || ''}</div>
     </div>
     <span class="badge ${item.type === 'arrival' ? 'badge-terra' : 'badge-amber'}">${item.type === 'arrival' ? 'arrival' : 'monthly'}</span>
-    <span class="budget-amount editable-amount" onclick="editBudgetAmount(this,'${item.id}')" title="Click to edit">$${item.amount.toLocaleString()}</span>
+    <span class="budget-amount editable-amount" onclick="editBudgetAmount(this,'${item.id}')" title="Click to edit">${fmt(item.amount)}</span>
     <div class="pack-actions" style="display:flex;gap:4px">
       <button class="btn btn-sm btn-danger" onclick="deleteBudgetItem('${item.id}')">×</button>
     </div>
@@ -1965,7 +2066,16 @@ function loadFromUrl() {
 // ============================================================
 // INIT
 // ============================================================
+function initCurrencySelect() {
+  const sel = document.getElementById('currency-select');
+  if (!sel) return;
+  sel.innerHTML = Object.entries(CURRENCIES).map(([code, c]) =>
+    `<option value="${code}" ${code === selectedCurrency ? 'selected' : ''}>${code} (${c.symbol})</option>`
+  ).join('');
+}
+
 renderThemeToggle();
+initCurrencySelect();
 loadFromUrl();
 renderAll();
 </script>
