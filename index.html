@@ -728,12 +728,28 @@
     border-radius: 4px;
   }
 
-  /* UNDO TOAST */
-  .toast-undo-btn {
-    background: none; border: none; color: var(--amber-light);
-    font-weight: 600; cursor: pointer; font-family: inherit;
-    font-size: inherit; padding: 0 0 0 10px; text-decoration: underline;
+  /* UNDO BAR */
+  .undo-bar {
+    display: none; align-items: center; gap: 12px;
+    padding: 10px 20px;
+    background: var(--brown); color: var(--cream);
+    font-size: 13px; font-weight: 400;
   }
+  .undo-bar.visible { display: flex; }
+  .undo-bar-btn {
+    background: var(--amber); color: #fff; border: none;
+    padding: 5px 16px; border-radius: 6px; cursor: pointer;
+    font-weight: 600; font-size: 12px; font-family: inherit;
+    flex-shrink: 0; transition: opacity 0.15s;
+  }
+  .undo-bar-btn:hover { opacity: 0.85; }
+  .undo-bar-dismiss {
+    background: none; border: none; color: rgba(250,246,240,0.55);
+    cursor: pointer; font-size: 18px; padding: 0 2px; line-height: 1;
+    flex-shrink: 0;
+  }
+  .undo-bar-dismiss:hover { color: var(--cream); }
+  [data-theme="dark"] .undo-bar { background: #0E0A06; }
 
   /* BUDGET EDITABLE LABEL */
   .budget-label[contenteditable="true"]:focus,
@@ -849,6 +865,15 @@
   </div>
 </nav>
 
+<!-- UNDO BAR -->
+<div class="undo-bar" id="undo-bar">
+  <span id="undo-label" style="flex:1"></span>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="undo-bar-btn" onclick="undoDelete()">Undo</button>
+    <button class="undo-bar-dismiss" onclick="dismissUndo()" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+
 <main class="main">
 
   <!-- ===== PACKING TAB ===== -->
@@ -864,6 +889,10 @@
       <span class="badge badge-sage">bring</span> packed from home &nbsp;·&nbsp;
       <span class="badge badge-amber">buy</span> purchase at destination &nbsp;·&nbsp;
       <span class="badge badge-urgent">urgent</span> time-sensitive
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:4px">
+      <button class="btn btn-sm" onclick="expandAllSections()">Expand all</button>
+      <button class="btn btn-sm" onclick="collapseAllSections()">Collapse all</button>
     </div>
     <div id="pack-sections"></div>
     <button class="btn btn-primary" onclick="openAddSectionModal()" style="margin-top:8px">+ Add new category</button>
@@ -1481,6 +1510,7 @@ let packFilter = 'all';
 let budgetFilter = 'all';
 let editingLegId = null;
 let collapsedSections = new Set(JSON.parse(localStorage.getItem('mw-collapsed') || '[]'));
+let collapsedBudgetGroups = new Set(JSON.parse(localStorage.getItem('mw-budget-collapsed') || '[]'));
 
 function toggleSectionCollapse(secId) {
   if (collapsedSections.has(secId)) collapsedSections.delete(secId);
@@ -1535,35 +1565,28 @@ function setCurrency(code) {
 function uid() { return Math.random().toString(36).slice(2,8); }
 
 // ---- Undo system ----
-let _undoStack = null;
+let _undoRestore = null;
 
-function softDelete(label, doRestore, doRender) {
-  doRender(); // already removed from STATE before calling
-  if (_undoStack) {
-    clearTimeout(_undoStack.timer);
-    saveToFirebase(); // commit previous pending deletion
-  }
-  _undoStack = {
-    doRestore,
-    timer: setTimeout(() => { saveToFirebase(); _undoStack = null; }, 5000)
-  };
-  showUndoToast(label);
-}
-
-function showUndoToast(label) {
-  const t = document.getElementById('toast');
-  t.innerHTML = `${label} &nbsp;<button class="toast-undo-btn" onclick="undoDelete()">Undo</button>`;
-  t.classList.add('show');
+function softDelete(label, doRestore) {
+  // STATE already mutated + rendered before calling. Save immediately.
+  saveToFirebase();
+  _undoRestore = doRestore;
+  document.getElementById('undo-label').textContent = label;
+  document.getElementById('undo-bar').classList.add('visible');
 }
 
 function undoDelete() {
-  if (!_undoStack) return;
-  clearTimeout(_undoStack.timer);
-  _undoStack.doRestore();
-  _undoStack = null;
-  const t = document.getElementById('toast');
-  t.classList.remove('show');
+  if (!_undoRestore) return;
+  _undoRestore();
+  saveToFirebase();
+  _undoRestore = null;
+  document.getElementById('undo-bar').classList.remove('visible');
   showToast('Restored ✓');
+}
+
+function dismissUndo() {
+  _undoRestore = null;
+  document.getElementById('undo-bar').classList.remove('visible');
 }
 
 function showToast(msg) {
@@ -1712,13 +1735,15 @@ function deletePackItem(secId, itemId) {
   const idx = sec.items.findIndex(i => i.id === itemId);
   const item = JSON.parse(JSON.stringify(sec.items[idx]));
   sec.items.splice(idx, 1);
-  softDelete(`"${item.label}" removed`, () => { sec.items.splice(idx, 0, item); renderPacking(); }, renderPacking);
+  renderPacking();
+  softDelete(`"${item.label}" removed`, () => { sec.items.splice(idx, 0, item); renderPacking(); });
 }
 function deleteSection(secId) {
   const idx = STATE.packSections.findIndex(s => s.id === secId);
   const sec = JSON.parse(JSON.stringify(STATE.packSections[idx]));
   STATE.packSections.splice(idx, 1);
-  softDelete(`"${sec.title}" removed`, () => { STATE.packSections.splice(idx, 0, sec); renderPacking(); }, renderPacking);
+  renderPacking();
+  softDelete(`"${sec.title}" category removed`, () => { STATE.packSections.splice(idx, 0, sec); renderPacking(); });
 }
 function openAddItemForm(secId) {
   document.getElementById('add-form-' + secId).classList.add('open');
@@ -1866,6 +1891,22 @@ function dndDrop(type, fromId, toId, fromSec, toSec, before) {
   }
 }
 
+function toggleBudgetGroup(group) {
+  if (collapsedBudgetGroups.has(group)) collapsedBudgetGroups.delete(group);
+  else collapsedBudgetGroups.add(group);
+  localStorage.setItem('mw-budget-collapsed', JSON.stringify([...collapsedBudgetGroups]));
+  renderBudget();
+}
+function expandAllSections() {
+  collapsedSections.clear();
+  localStorage.setItem('mw-collapsed', '[]');
+  renderPacking();
+}
+function collapseAllSections() {
+  STATE.packSections.forEach(s => collapsedSections.add(s.id));
+  localStorage.setItem('mw-collapsed', JSON.stringify([...collapsedSections]));
+  renderPacking();
+}
 function openAddSectionModal() { openModal('add-section-modal'); }
 function confirmAddSection() {
   const name = document.getElementById('new-section-name').value.trim();
@@ -1901,15 +1942,29 @@ function renderBudget() {
   const arrivalItems = visible.filter(i => i.type === 'arrival');
   const monthlyItems = visible.filter(i => i.type === 'monthly');
   let html = '';
+  const arrivalCollapsed = collapsedBudgetGroups.has('arrival');
+  const monthlyCollapsed = collapsedBudgetGroups.has('monthly');
   if (arrivalItems.length) {
-    html += '<div class="section-header">Arrival month — one-time costs</div><div class="card">';
-    html += arrivalItems.map(item => budgetRowHTML(item)).join('');
-    html += '</div>';
+    html += `<div class="section-header" style="cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center" onclick="toggleBudgetGroup('arrival')">
+      <span>Arrival month — one-time costs</span>
+      <span style="font-size:11px;opacity:0.6">${arrivalCollapsed ? '▸' : '▾'}</span>
+    </div>`;
+    if (!arrivalCollapsed) {
+      html += '<div class="card">';
+      html += arrivalItems.map(item => budgetRowHTML(item)).join('');
+      html += '</div>';
+    }
   }
   if (monthlyItems.length) {
-    html += '<div class="section-header">Monthly ongoing</div><div class="card">';
-    html += monthlyItems.map(item => budgetRowHTML(item)).join('');
-    html += '</div>';
+    html += `<div class="section-header" style="cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center" onclick="toggleBudgetGroup('monthly')">
+      <span>Monthly ongoing</span>
+      <span style="font-size:11px;opacity:0.6">${monthlyCollapsed ? '▸' : '▾'}</span>
+    </div>`;
+    if (!monthlyCollapsed) {
+      html += '<div class="card">';
+      html += monthlyItems.map(item => budgetRowHTML(item)).join('');
+      html += '</div>';
+    }
   }
   if (!visible.length) html = '<div class="empty-state"><div class="icon" style="font-size:32px;margin-bottom:8px">💰</div><p>No items. Add a budget line to get started.</p></div>';
   document.getElementById('budget-sections').innerHTML = html;
@@ -1959,7 +2014,8 @@ function deleteBudgetItem(id) {
   const idx = STATE.budgetItems.findIndex(i => i.id === id);
   const item = JSON.parse(JSON.stringify(STATE.budgetItems[idx]));
   STATE.budgetItems.splice(idx, 1);
-  softDelete(`"${item.label}" removed`, () => { STATE.budgetItems.splice(idx, 0, item); renderBudget(); }, renderBudget);
+  renderBudget();
+  softDelete(`"${item.label}" removed`, () => { STATE.budgetItems.splice(idx, 0, item); renderBudget(); });
 }
 function editBudgetLabel(itemId, val) {
   const item = STATE.budgetItems.find(i => i.id === itemId);
@@ -2182,7 +2238,8 @@ function deleteCustoms(id) {
   const idx = STATE.customsSections.findIndex(s => s.id === id);
   const sec = JSON.parse(JSON.stringify(STATE.customsSections[idx]));
   STATE.customsSections.splice(idx, 1);
-  softDelete(`"${sec.q}" removed`, () => { STATE.customsSections.splice(idx, 0, sec); renderCustoms(); }, renderCustoms);
+  renderCustoms();
+  softDelete(`"${sec.q}" removed`, () => { STATE.customsSections.splice(idx, 0, sec); renderCustoms(); });
 }
 function openAddCustomsModal() { openModal('add-customs-modal'); }
 function confirmAddCustoms() {
