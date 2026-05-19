@@ -72,6 +72,17 @@
   [data-theme="dark"] .btn-google { background: #2A1E14; border-color: var(--border); color: var(--text-primary); }
   [data-theme="dark"] .total-card { background: #0E0A06; }
   [data-theme="dark"] input, [data-theme="dark"] textarea, [data-theme="dark"] select { color-scheme: dark; }
+  [data-theme="dark"] .card { background: var(--white); }
+  [data-theme="dark"] .pack-item:hover { background: var(--cream-dark); }
+  [data-theme="dark"] .modal { background: #1E1510; }
+  [data-theme="dark"] .toast { background: #2A1E14; color: var(--text-primary); }
+  [data-theme="dark"] .badge-legend { color: var(--text-muted); }
+  [data-theme="dark"] .section-header { color: var(--text-secondary); }
+  [data-theme="dark"] .budget-label { color: var(--text-primary); }
+  [data-theme="dark"] .budget-note { color: var(--text-secondary); }
+  [data-theme="dark"] [contenteditable]:focus,
+  [data-theme="dark"] [data-ce]:focus { background: var(--cream-dark) !important; outline: none; }
+  [data-theme="dark"] .currency-select { background: var(--white); color: var(--text-primary); border-color: var(--border); }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -701,6 +712,38 @@
   @media (min-width: 641px) {
     .mobile-nav { display: none !important; }
   }
+  @media (max-width: 640px) {
+    .hide-mobile { display: none !important; }
+  }
+
+  /* BADGE LEGEND */
+  .badge-legend {
+    font-size: 11px; color: var(--text-muted);
+    margin: 6px 0 10px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+  }
+
+  /* DOUBLE-TAP HINT (mobile) */
+  [data-ce].ce-tapped {
+    outline: 1.5px dashed var(--terracotta-light);
+    border-radius: 4px;
+  }
+
+  /* UNDO TOAST */
+  .toast-undo-btn {
+    background: none; border: none; color: var(--amber-light);
+    font-weight: 600; cursor: pointer; font-family: inherit;
+    font-size: inherit; padding: 0 0 0 10px; text-decoration: underline;
+  }
+
+  /* BUDGET EDITABLE LABEL */
+  .budget-label[contenteditable="true"]:focus,
+  .budget-label[data-ce]:focus {
+    background: var(--cream-dark); border-radius: 4px; padding: 1px 4px; margin: -1px -4px;
+  }
+
+  /* TYPE TOGGLE BADGE */
+  .type-toggle { cursor: pointer; }
+  .type-toggle:hover { opacity: 0.75; }
 
   /* EDIT INLINE */
   .editable-field {
@@ -792,8 +835,7 @@
         <span class="user-name" id="user-name"></span>
         <button class="btn-header" onclick="signOutUser()">Sign out</button>
       </div>
-      <button class="btn-header" onclick="openShareModal()">Share</button>
-      <button class="btn-header" onclick="openTemplateModal()">Templates</button>
+      <button class="btn-header hide-mobile" onclick="openTemplateModal()">Templates</button>
     </div>
   </div>
 </header>
@@ -817,6 +859,11 @@
       <button class="filter-pill" onclick="setPackFilter('bring',this)">Bring from home</button>
       <button class="filter-pill" onclick="setPackFilter('buy',this)">Buy at destination</button>
       <button class="filter-pill" onclick="setPackFilter('unpacked',this)">Unpacked only</button>
+    </div>
+    <div class="badge-legend">
+      <span class="badge badge-sage">bring</span> packed from home &nbsp;·&nbsp;
+      <span class="badge badge-amber">buy</span> purchase at destination &nbsp;·&nbsp;
+      <span class="badge badge-urgent">urgent</span> time-sensitive
     </div>
     <div id="pack-sections"></div>
     <button class="btn btn-primary" onclick="openAddSectionModal()" style="margin-top:8px">+ Add new category</button>
@@ -844,34 +891,36 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
       <button class="btn btn-primary" onclick="addFlightLeg()">+ Add leg</button>
       <button class="btn" onclick="addStay()">+ Add stay / stopover</button>
-      <button class="btn" onclick="openFlightSearch()">🔍 Search live prices</button>
-    </div>
-    <div class="card" style="margin-top:16px">
-      <div class="card-title" style="margin-bottom:10px;font-size:13px">Quick flight search links</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap" id="flight-links"></div>
     </div>
   </div>
 
   <!-- ===== CUSTOMS TAB ===== -->
   <div id="tab-customs" class="tab-content">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+      <button class="btn btn-primary" onclick="openAddCustomsModal()">+ Add note or tip</button>
+      <button class="btn btn-sm" onclick="expandAllNotes()">Expand all</button>
+      <button class="btn btn-sm" onclick="collapseAllNotes()">Collapse all</button>
+    </div>
     <div id="customs-sections"></div>
-    <button class="btn btn-primary" onclick="openAddCustomsModal()" style="margin-top:8px">+ Add note or tip</button>
   </div>
 
 </main>
 
-<!-- SHARE MODAL -->
-<div class="modal-overlay" id="share-modal">
-  <div class="modal">
-    <div class="modal-title">Share this planner</div>
-    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Anyone with this link can open a copy of your planner. They get your pre-loaded data as a starting template and can customise it for their own move.</p>
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <input class="form-input flex-1" id="share-url" readonly value="">
-      <button class="btn btn-primary" onclick="copyShareUrl()">Copy</button>
-    </div>
-    <p style="font-size:11px;color:var(--text-muted)">Share this URL with friends or fellow students planning a similar move.</p>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('share-modal')">Close</button>
+<!-- ONBOARDING MODAL -->
+<div class="modal-overlay" id="onboarding-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-title" style="font-size:20px">Welcome to Movewise</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6">Your personal move planner — track what to pack, budget your costs, plan your flights, and keep all your moving notes in one place.</p>
+    <p style="font-size:12px;font-weight:500;color:var(--text-primary);margin-bottom:10px">How would you like to start?</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px">
+      <button class="btn" style="justify-content:flex-start;padding:14px 16px;text-align:left;height:auto;flex-direction:column;align-items:flex-start" onclick="loadOnboardingTemplate('sandra')">
+        <span style="font-weight:600;color:var(--text-primary)">Load example template</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-top:3px">Pre-filled packing list, Ithaca budget, ACC → JFK → ITH route. Edit anything.</span>
+      </button>
+      <button class="btn" style="justify-content:flex-start;padding:14px 16px;text-align:left;height:auto;flex-direction:column;align-items:flex-start" onclick="loadOnboardingTemplate('blank')">
+        <span style="font-weight:600;color:var(--text-primary)">Start from scratch</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-top:3px">Empty sections — build your own plan from the ground up.</span>
+      </button>
     </div>
   </div>
 </div>
@@ -1212,8 +1261,9 @@ function setupFirebaseSync() {
       applyRemoteData(data);
       showToast('Data loaded ✓');
     } else {
-      saveToFirebase();
+      // Brand-new account — show onboarding instead of loading defaults
       renderAll();
+      setTimeout(maybeShowOnboarding, 400);
     }
 
     // Real-time listener for changes from other devices
@@ -1445,6 +1495,17 @@ function toggleSectionCollapse(secId) {
 // ============================================================
 // CURRENCY
 // ============================================================
+// ============================================================
+// DEVICE DETECTION
+// ============================================================
+const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+// On touch devices, contenteditable is "false" by default; double-tap enables edit.
+// On desktop, contenteditable is "true" always.
+const ceAttr = IS_TOUCH ? 'contenteditable="false" data-ce' : 'contenteditable="true"';
+
+// ============================================================
+// CURRENCIES
+// ============================================================
 const CURRENCIES = {
   USD: { symbol: '$',  name: 'US Dollar' },
   GBP: { symbol: '£',  name: 'British Pound' },
@@ -1472,6 +1533,39 @@ function setCurrency(code) {
 // UTILS
 // ============================================================
 function uid() { return Math.random().toString(36).slice(2,8); }
+
+// ---- Undo system ----
+let _undoStack = null;
+
+function softDelete(label, doRestore, doRender) {
+  doRender(); // already removed from STATE before calling
+  if (_undoStack) {
+    clearTimeout(_undoStack.timer);
+    saveToFirebase(); // commit previous pending deletion
+  }
+  _undoStack = {
+    doRestore,
+    timer: setTimeout(() => { saveToFirebase(); _undoStack = null; }, 5000)
+  };
+  showUndoToast(label);
+}
+
+function showUndoToast(label) {
+  const t = document.getElementById('toast');
+  t.innerHTML = `${label} &nbsp;<button class="toast-undo-btn" onclick="undoDelete()">Undo</button>`;
+  t.classList.add('show');
+}
+
+function undoDelete() {
+  if (!_undoStack) return;
+  clearTimeout(_undoStack.timer);
+  _undoStack.doRestore();
+  _undoStack = null;
+  const t = document.getElementById('toast');
+  t.classList.remove('show');
+  showToast('Restored ✓');
+}
+
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
@@ -1546,10 +1640,10 @@ function renderPacking() {
               <span class="drag-handle" onpointerdown="startDrag(event,'item','${item.id}','${sec.id}')" title="Drag to reorder">${GRIP}</span>
               <div class="pack-check ${item.checked ? 'checked' : ''}" onclick="togglePackItem('${sec.id}','${item.id}')"></div>
               <div style="flex:1;min-width:0">
-                <div class="pack-label ${item.checked ? 'done' : ''}" contenteditable="true"
+                <div class="pack-label ${item.checked ? 'done' : ''}" ${ceAttr}
                   onblur="editPackLabel('${sec.id}','${item.id}',this.textContent)"
                   >${item.label}</div>
-                <div class="pack-note" contenteditable="true"
+                <div class="pack-note" ${ceAttr}
                   onblur="editPackNote('${sec.id}','${item.id}',this.textContent)"
                   >${item.note || ''}</div>
               </div>
@@ -1615,15 +1709,16 @@ function editPackNote(secId, itemId, val) {
 }
 function deletePackItem(secId, itemId) {
   const sec = STATE.packSections.find(s => s.id === secId);
-  sec.items = sec.items.filter(i => i.id !== itemId);
-  saveToFirebase();
-  renderPacking(); showToast('Item removed');
+  const idx = sec.items.findIndex(i => i.id === itemId);
+  const item = JSON.parse(JSON.stringify(sec.items[idx]));
+  sec.items.splice(idx, 1);
+  softDelete(`"${item.label}" removed`, () => { sec.items.splice(idx, 0, item); renderPacking(); }, renderPacking);
 }
 function deleteSection(secId) {
-  if (!confirm('Remove this entire category?')) return;
-  STATE.packSections = STATE.packSections.filter(s => s.id !== secId);
-  saveToFirebase();
-  renderPacking(); showToast('Category removed');
+  const idx = STATE.packSections.findIndex(s => s.id === secId);
+  const sec = JSON.parse(JSON.stringify(STATE.packSections[idx]));
+  STATE.packSections.splice(idx, 1);
+  softDelete(`"${sec.title}" removed`, () => { STATE.packSections.splice(idx, 0, sec); renderPacking(); }, renderPacking);
 }
 function openAddItemForm(secId) {
   document.getElementById('add-form-' + secId).classList.add('open');
@@ -1705,6 +1800,48 @@ document.addEventListener('pointerup', e => {
   dnd = null;
 });
 
+// ============================================================
+// DOUBLE-TAP TO EDIT (mobile)
+// ============================================================
+if (IS_TOUCH) {
+  let dtEl = null, dtTime = 0;
+
+  document.addEventListener('click', e => {
+    const field = e.target.closest('[data-ce]');
+    if (!field) { dtEl = null; return; }
+
+    const now = Date.now();
+    if (dtEl === field && now - dtTime < 450) {
+      // Double-tap: activate editing
+      dtEl = null;
+      field.removeAttribute('contenteditable'); // clear "false"
+      field.contentEditable = 'true';
+      field.classList.remove('ce-tapped');
+      field.focus();
+      // Move cursor to end
+      const range = document.createRange();
+      range.selectNodeContents(field);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      // Single tap: show dashed hint
+      if (dtEl) dtEl.classList.remove('ce-tapped');
+      dtEl = field;
+      dtTime = now;
+      field.classList.add('ce-tapped');
+      setTimeout(() => field.classList.remove('ce-tapped'), 900);
+    }
+  });
+
+  // Reset contenteditable to "false" after blur
+  document.addEventListener('focusout', e => {
+    const field = e.target.closest('[data-ce]');
+    if (field) field.contentEditable = 'false';
+  });
+}
+
 function dndDrop(type, fromId, toId, fromSec, toSec, before) {
   function reorder(arr, fId, tId) {
     const fi = arr.findIndex(x => x.id === fId);
@@ -1781,15 +1918,18 @@ function budgetRowHTML(item) {
   return `<div class="budget-row" data-dnd-type="budget" data-dnd-id="${item.id}">
     <span class="drag-handle" onpointerdown="startDrag(event,'budget','${item.id}',null)" title="Drag to reorder">${GRIP}</span>
     <div class="budget-info" style="flex:1;min-width:0">
-      <div class="budget-label">${item.label}</div>
-      <div class="budget-note" contenteditable="true"
+      <div class="budget-label" ${ceAttr}
+        onblur="editBudgetLabel('${item.id}',this.textContent)"
+        >${item.label}</div>
+      <div class="budget-note" ${ceAttr}
         onblur="editBudgetNote('${item.id}',this.textContent)"
         style="outline:none;cursor:text"
-        onfocus="this.style.background='var(--cream-dark)';this.style.borderRadius='4px';this.style.padding='1px 4px';this.style.margin='0 -4px'"
-        onblur2="this.style.background='';this.style.padding='';this.style.margin=''"
         >${item.note || ''}</div>
     </div>
-    <span class="badge ${item.type === 'arrival' ? 'badge-terra' : 'badge-amber'}">${item.type === 'arrival' ? 'arrival' : 'monthly'}</span>
+    <span class="badge type-toggle ${item.type === 'arrival' ? 'badge-terra' : 'badge-amber'}"
+      onclick="toggleBudgetType('${item.id}')"
+      title="Click to switch between arrival / monthly"
+      >${item.type === 'arrival' ? 'arrival' : 'monthly'}</span>
     <span class="budget-amount editable-amount" onclick="editBudgetAmount(this,'${item.id}')" title="Click to edit">${fmt(item.amount)}</span>
     <div class="pack-actions" style="display:flex;gap:4px">
       <button class="btn btn-sm btn-danger" onclick="deleteBudgetItem('${item.id}')">×</button>
@@ -1816,13 +1956,24 @@ function confirmAddBudget() {
   renderBudget(); showToast('Budget line added');
 }
 function deleteBudgetItem(id) {
-  STATE.budgetItems = STATE.budgetItems.filter(i => i.id !== id);
-  saveToFirebase();
-  renderBudget(); showToast('Item removed');
+  const idx = STATE.budgetItems.findIndex(i => i.id === id);
+  const item = JSON.parse(JSON.stringify(STATE.budgetItems[idx]));
+  STATE.budgetItems.splice(idx, 1);
+  softDelete(`"${item.label}" removed`, () => { STATE.budgetItems.splice(idx, 0, item); renderBudget(); }, renderBudget);
+}
+function editBudgetLabel(itemId, val) {
+  const item = STATE.budgetItems.find(i => i.id === itemId);
+  if (item && val.trim()) { item.label = val.trim(); saveToFirebase(); }
 }
 function editBudgetNote(itemId, val) {
   const item = STATE.budgetItems.find(i => i.id === itemId);
   if (item) { item.note = val.trim(); saveToFirebase(); }
+}
+function toggleBudgetType(id) {
+  const item = STATE.budgetItems.find(i => i.id === id);
+  if (!item) return;
+  item.type = item.type === 'arrival' ? 'monthly' : 'arrival';
+  saveToFirebase(); renderBudget();
 }
 function editBudgetAmount(el, itemId) {
   const currentVal = (STATE.budgetItems.find(i => i.id === itemId) || {}).amount || 0;
@@ -1857,8 +2008,7 @@ function editBudgetAmount(el, itemId) {
 function renderFlights() {
   const wrap = document.getElementById('flight-legs-wrap');
   if (!STATE.flightLegs.length) {
-    wrap.innerHTML = '<div class="empty-state"><div class="icon">✈️</div><p>No flight legs yet. Add your first leg to get started.</p></div>';
-    renderFlightLinks();
+    wrap.innerHTML = '<div class="empty-state"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px;color:var(--text-muted)"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19.5 2.5c-1.5-1.5-3.5-1.5-5 0L11 6 2.8 3.2 1.4 4.6 8 11.1l-3.5 3.4H2l-1 1 3 1 1 3 1-1V16l3.5-3.4z"/></svg><p style="font-weight:500">No legs yet</p><p style="font-size:12px;color:var(--text-muted);margin-top:4px">Add your flights and stopovers to build your full journey.</p></div>';
     return;
   }
   let html = '<div class="card"><div class="card-title" style="margin-bottom:14px">Your journey</div>';
@@ -1896,18 +2046,6 @@ function renderFlights() {
   });
   html += '</div>';
   wrap.innerHTML = html;
-  renderFlightLinks();
-}
-function renderFlightLinks() {
-  const legs = STATE.flightLegs.filter(l => l.type === 'flight');
-  const wrap = document.getElementById('flight-links');
-  if (!legs.length) { wrap.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Add flight legs to generate search links.</span>'; return; }
-  wrap.innerHTML = legs.map(leg => {
-    const gfUrl = `https://www.google.com/travel/flights/search?q=flights+from+${leg.from}+to+${leg.to}`;
-    const kayakUrl = `https://www.kayak.com/flights/${leg.from}-${leg.to}`;
-    return `<a class="btn btn-sm" href="${gfUrl}" target="_blank">Google Flights: ${leg.from}→${leg.to}</a>
-            <a class="btn btn-sm" href="${kayakUrl}" target="_blank">Kayak: ${leg.from}→${leg.to}</a>`;
-  }).join('');
 }
 function addFlightLeg() {
   editingLegId = null;
@@ -1936,7 +2074,14 @@ function editLeg(id) {
 function confirmAddLeg() {
   const from = document.getElementById('leg-from').value.trim().toUpperCase();
   const to = document.getElementById('leg-to').value.trim().toUpperCase();
-  if (!from || !to) return;
+  if (!from || !to) { showToast('From and To airports are required'); return; }
+  const dateRaw = document.getElementById('leg-date').value.trim();
+  if (dateRaw) {
+    const parsed = new Date(dateRaw);
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    if (!isNaN(parsed) && parsed < now) showToast('⚠️ That date is in the past');
+  }
   const leg = {
     id: editingLegId || uid(),
     type: 'flight',
@@ -1988,37 +2133,42 @@ function deleteLeg(id) {
   saveToFirebase();
   renderFlights(); showToast('Removed');
 }
-function openFlightSearch() {
-  const legs = STATE.flightLegs.filter(l => l.type === 'flight');
-  if (!legs.length) { showToast('Add flight legs first'); return; }
-  const first = legs[0];
-  window.open(`https://www.google.com/travel/flights/search?q=flights+from+${first.from}+to+${first.to}`, '_blank');
-}
-
 // ============================================================
 // CUSTOMS
 // ============================================================
 function renderCustoms() {
   const wrap = document.getElementById('customs-sections');
   if (!STATE.customsSections.length) {
-    wrap.innerHTML = '<div class="empty-state"><div class="icon" style="font-size:32px;margin-bottom:8px">📝</div><p>No notes yet. Add your first one.</p></div>';
+    wrap.innerHTML = '<div class="empty-state"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px;color:var(--text-muted)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><p style="font-weight:500">No notes yet</p><p style="font-size:12px;color:var(--text-muted);margin-top:4px">Add customs tips, reminders, or anything you want to keep track of.</p></div>';
     return;
   }
   wrap.innerHTML = '<div class="card">' + STATE.customsSections.map(sec => `
     <div class="customs-q" onclick="toggleCustoms('${sec.id}',this)" id="cq-${sec.id}">
-      <span>📋</span> ${sec.q}
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      ${sec.q}
       <span class="chevron">▾</span>
     </div>
     <div class="customs-body" id="cb-${sec.id}">
-      <div contenteditable="true" onblur="editCustomsBody('${sec.id}',this.textContent)"
+      <div ${ceAttr} onblur="editCustomsBody('${sec.id}',this.textContent)"
         style="white-space:pre-wrap;outline:none;border-radius:4px;padding:4px"
-        onfocus="this.style.background='var(--cream)'" onblur2="this.style.background=''"
         >${sec.body}</div>
       <div style="display:flex;gap:6px;margin-top:10px">
         <button class="btn btn-sm btn-danger" onclick="deleteCustoms('${sec.id}')">Remove</button>
       </div>
     </div>
   `).join('') + '</div>';
+}
+function expandAllNotes() {
+  STATE.customsSections.forEach(sec => {
+    document.getElementById('cq-' + sec.id)?.classList.add('open');
+    document.getElementById('cb-' + sec.id)?.classList.add('open');
+  });
+}
+function collapseAllNotes() {
+  STATE.customsSections.forEach(sec => {
+    document.getElementById('cq-' + sec.id)?.classList.remove('open');
+    document.getElementById('cb-' + sec.id)?.classList.remove('open');
+  });
 }
 function toggleCustoms(id, el) {
   el.classList.toggle('open');
@@ -2029,9 +2179,10 @@ function editCustomsBody(id, val) {
   if (sec) { sec.body = val.trim(); saveToFirebase(); }
 }
 function deleteCustoms(id) {
-  STATE.customsSections = STATE.customsSections.filter(s => s.id !== id);
-  saveToFirebase();
-  renderCustoms(); showToast('Note removed');
+  const idx = STATE.customsSections.findIndex(s => s.id === id);
+  const sec = JSON.parse(JSON.stringify(STATE.customsSections[idx]));
+  STATE.customsSections.splice(idx, 1);
+  softDelete(`"${sec.q}" removed`, () => { STATE.customsSections.splice(idx, 0, sec); renderCustoms(); }, renderCustoms);
 }
 function openAddCustomsModal() { openModal('add-customs-modal'); }
 function confirmAddCustoms() {
@@ -2047,20 +2198,8 @@ function confirmAddCustoms() {
 }
 
 // ============================================================
-// SHARE & TEMPLATE
+// TEMPLATES & ONBOARDING
 // ============================================================
-function openShareModal() {
-  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(STATE))));
-  const url = window.location.href.split('?')[0] + '?data=' + encoded;
-  document.getElementById('share-url').value = url;
-  openModal('share-modal');
-}
-function copyShareUrl() {
-  const input = document.getElementById('share-url');
-  input.select();
-  document.execCommand('copy');
-  showToast('Link copied!');
-}
 function openTemplateModal() { openModal('template-modal'); }
 function loadTemplate(type) {
   if (!confirm('This will replace your current data. Continue?')) return;
@@ -2068,7 +2207,20 @@ function loadTemplate(type) {
   closeModal('template-modal');
   saveToFirebase();
   renderAll();
-  showToast(type === 'blank' ? 'Blank template loaded' : "Sandra's template loaded");
+  showToast(type === 'blank' ? 'Blank template loaded' : "Example template loaded");
+}
+function loadOnboardingTemplate(type) {
+  STATE = JSON.parse(JSON.stringify(type === 'blank' ? BLANK_DATA : SANDRA_DATA));
+  closeModal('onboarding-modal');
+  if (currentUser) localStorage.setItem('mw-onboarded-' + currentUser.uid, '1');
+  saveToFirebase();
+  renderAll();
+  showToast(type === 'blank' ? 'Ready — start adding your items!' : 'Example template loaded — edit anything to make it yours.');
+}
+function maybeShowOnboarding() {
+  if (!currentUser) return;
+  if (localStorage.getItem('mw-onboarded-' + currentUser.uid)) return;
+  openModal('onboarding-modal');
 }
 
 // ============================================================
