@@ -613,6 +613,34 @@
   .date-note { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
   .date-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
+  /* URGENT CALLOUT CARD */
+  .dates-alert {
+    border-radius: 14px; padding: 16px 18px; margin-bottom: 16px;
+    border: 1.5px solid var(--danger-pale);
+    background: var(--danger-pale);
+  }
+  .dates-alert.mixed { background: var(--amber-pale); border-color: var(--amber-pale); }
+  .dates-alert-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--danger); margin-bottom: 12px;
+  }
+  .dates-alert.mixed .dates-alert-title { color: var(--amber); }
+  .dates-alert-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 8px 0; border-top: 1px solid rgba(193,96,58,0.12);
+  }
+  .dates-alert-item:first-of-type { border-top: none; padding-top: 0; }
+  .dates-alert-days {
+    font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 600;
+    line-height: 1; flex-shrink: 0; color: var(--danger); min-width: 40px; text-align: right;
+  }
+  .dates-alert-days.amber { color: var(--amber); }
+  .dates-alert-unit { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-top: 1px; }
+  .dates-alert-info { flex: 1; min-width: 0; }
+  .dates-alert-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .dates-alert-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .dates-alert-done { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
   /* COUNTDOWN */
   .countdown-card {
     background: linear-gradient(135deg, var(--terracotta) 0%, var(--amber) 100%);
@@ -1060,6 +1088,14 @@
 
   <!-- ===== DATES TAB ===== -->
   <div id="tab-dates" class="tab-content">
+    <div class="filter-row" id="dates-filters" style="flex-wrap:wrap">
+      <button class="filter-pill active" onclick="setDatesFilter('all',this)">All</button>
+      <button class="filter-pill" onclick="setDatesFilter('Visa &amp; Immigration',this)">Visa &amp; Immigration</button>
+      <button class="filter-pill" onclick="setDatesFilter('Academic',this)">Academic</button>
+      <button class="filter-pill" onclick="setDatesFilter('Housing',this)">Housing</button>
+      <button class="filter-pill" onclick="setDatesFilter('Financial',this)">Financial</button>
+      <button class="filter-pill" onclick="setDatesFilter('Travel',this)">Travel</button>
+    </div>
     <div id="dates-wrap"></div>
     <button class="btn btn-primary" onclick="openAddDateModal()" style="margin-top:12px">+ Add date</button>
   </div>
@@ -1769,6 +1805,7 @@ const BLANK_DATA = {
 let STATE = JSON.parse(JSON.stringify(SANDRA_DATA));
 let packFilter = 'all';
 let budgetFilter = 'all';
+let datesFilter = 'all';
 let editingLegId = null;
 let collapsedSections = new Set(JSON.parse(localStorage.getItem('mw-collapsed') || '[]'));
 let collapsedBudgetSections = new Set(JSON.parse(localStorage.getItem('mw-budget-sec') || '[]'));
@@ -2771,21 +2808,13 @@ function renderDates() {
     return;
   }
 
-  const sorted = [...STATE.keyDates].sort((a,b) => new Date(a.date) - new Date(b.date));
-  const upcoming = sorted.filter(d => new Date(d.date) >= today || d.done === false && new Date(d.date) >= today);
-  const past = sorted.filter(d => new Date(d.date) < today && !d.done);
-  // Actually: upcoming = not done AND date >= today OR done regardless of date (they stay in upcoming as greyed)
-  // Simpler grouping: past = date < today AND not done. Everything else = upcoming.
-  const isPast = d => new Date(d.date) < today && !d.done;
-  const upcomingDates = sorted.filter(d => !isPast(d));
-  const pastDates     = sorted.filter(d => isPast(d));
+  function daysUntil(d) { return Math.round((new Date(d.date) - today) / 86400000); }
 
   function countdownLabel(d) {
     if (d.done) return { text: 'Done ✓', cls: 'done-lbl' };
-    const diff = new Date(d.date) - today;
-    const days = Math.round(diff / 86400000);
-    if (days < 0)  return { text: `${Math.abs(days)}d overdue`, cls: 'urgent' };
-    if (days === 0) return { text: 'Today', cls: 'urgent' };
+    const days = daysUntil(d);
+    if (days < 0)   return { text: `${Math.abs(days)}d overdue`, cls: 'urgent' };
+    if (days === 0) return { text: 'Today',    cls: 'urgent' };
     if (days === 1) return { text: 'Tomorrow', cls: 'urgent' };
     if (days <= 7)  return { text: `in ${days} days`, cls: 'urgent' };
     if (days <= 30) return { text: `in ${days} days`, cls: 'soon' };
@@ -2815,23 +2844,72 @@ function renderDates() {
     </div>`;
   }
 
-  let html = `<div class="card">
+  // ── Urgent callout (always from full list, ignores filter) ──
+  const alertItems = STATE.keyDates
+    .filter(d => !d.done && daysUntil(d) >= 0 && daysUntil(d) <= 14)
+    .sort((a,b) => daysUntil(a) - daysUntil(b));
+
+  let html = '';
+
+  if (alertItems.length) {
+    const hasRed = alertItems.some(d => daysUntil(d) <= 7);
+    html += `<div class="dates-alert ${!hasRed ? 'mixed' : ''}">
+      <div class="dates-alert-title">${hasRed ? '⚠️' : '⏰'} ${alertItems.length} deadline${alertItems.length > 1 ? 's' : ''} approaching</div>`;
+    alertItems.forEach(d => {
+      const days = daysUntil(d);
+      const isRed = days <= 7;
+      const dateStr = new Date(d.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      html += `<div class="dates-alert-item">
+        <div style="text-align:right;flex-shrink:0">
+          <div class="dates-alert-days ${!isRed ? 'amber' : ''}">${days === 0 ? '!' : days}</div>
+          <div class="dates-alert-unit">${days === 0 ? 'today' : 'days'}</div>
+        </div>
+        <div class="dates-alert-info">
+          <div class="dates-alert-label">${d.label}</div>
+          <div class="dates-alert-sub">${d.cat} · ${dateStr}</div>
+        </div>
+        <button class="date-done-btn" onclick="toggleDateDone('${d.id}')" title="Mark done" style="flex-shrink:0"></button>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // ── Filter + sort ──
+  const sorted = [...STATE.keyDates]
+    .filter(d => datesFilter === 'all' || d.cat === datesFilter)
+    .sort((a,b) => new Date(a.date) - new Date(b.date));
+
+  const isPast = d => new Date(d.date) < today && !d.done;
+  const upcomingDates = sorted.filter(d => !isPast(d));
+  const pastDates     = sorted.filter(d => isPast(d));
+
+  html += `<div class="card">
     <div class="card-header" style="margin-bottom:6px">
-      <div class="card-title">Key dates</div>
+      <div class="card-title">All dates</div>
       <span style="font-size:12px;color:${pct===100?'var(--success)':'var(--text-muted)'}">${done}/${total} done</span>
     </div>
     <div class="dates-progress"><div class="dates-progress-bar" style="width:${pct}%"></div></div>`;
 
+  if (!upcomingDates.length && !pastDates.length) {
+    html += `<div style="font-size:13px;color:var(--text-muted);padding:12px 0">No dates in this category.</div>`;
+  }
   if (upcomingDates.length) {
     html += `<div class="dates-group-label">Upcoming</div>`;
     html += upcomingDates.map(entryHTML).join('');
   }
   if (pastDates.length) {
-    html += `<div class="dates-group-label" style="margin-top:8px">Past (not marked done)</div>`;
+    html += `<div class="dates-group-label" style="margin-top:8px">Overdue — not marked done</div>`;
     html += pastDates.map(entryHTML).join('');
   }
   html += '</div>';
   wrap.innerHTML = html;
+}
+
+function setDatesFilter(f, btn) {
+  datesFilter = f;
+  document.querySelectorAll('#dates-filters .filter-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDates();
 }
 
 let editingDateId = null;
