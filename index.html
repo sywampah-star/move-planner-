@@ -1593,7 +1593,18 @@ function setupFirebaseSync() {
 }
 
 function applyRemoteData(data) {
-  if (data.packSections !== undefined) STATE.packSections = data.packSections || [];
+  if (data.packSections !== undefined) {
+    STATE.packSections = data.packSections || [];
+    // Inject any SANDRA_DATA sections not yet in saved data (e.g. newly added Food & Snacks)
+    let injected = false;
+    for (const seed of SANDRA_DATA.packSections) {
+      if (!STATE.packSections.find(s => s.id === seed.id)) {
+        STATE.packSections.push(JSON.parse(JSON.stringify(seed)));
+        injected = true;
+      }
+    }
+    if (injected) setTimeout(saveToFirebase, 200);
+  }
   if (data.flightLegs !== undefined) STATE.flightLegs = data.flightLegs || [];
   if (data.flightChecklist !== undefined) STATE.flightChecklist = data.flightChecklist || [];
   if (data.customsSections !== undefined) STATE.customsSections = data.customsSections || [];
@@ -2148,10 +2159,12 @@ function setPackFilter(f, btn) {
 }
 function togglePackItem(secId, itemId) {
   const sec = STATE.packSections.find(s => s.id === secId);
-  const item = sec.items.find(i => i.id === itemId);
+  const item = sec?.items.find(i => i.id === itemId);
+  if (!item) return;
   item.checked = !item.checked;
   saveToFirebase();
   renderPacking();
+  renderFlights();
 }
 function togglePackTag(secId, itemId) {
   const sec = STATE.packSections.find(s => s.id === secId);
@@ -2239,7 +2252,6 @@ document.addEventListener('pointermove', e => {
   document.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(el => el.classList.remove('drag-over-top','drag-over-bottom'));
   const target = under?.closest(`[data-dnd-type="${dnd.type}"]`);
   if (!target || target.dataset.dndId === dnd.id) return;
-  if (dnd.type === 'budget-item' && target.dataset.dndSec !== dnd.secId) return;
   const mid = target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
   target.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bottom');
 });
@@ -2332,10 +2344,19 @@ function dndDrop(type, fromId, toId, fromSec, toSec, before) {
     reorder(STATE.budgetSections, fromId, toId);
     saveToFirebase(); renderBudget();
   } else if (type === 'budget-item') {
-    if (fromSec !== toSec) return;
-    const sec = STATE.budgetSections.find(s => s.id === fromSec);
-    if (!sec) return;
-    reorder(sec.items, fromId, toId);
+    if (fromSec === toSec) {
+      const sec = STATE.budgetSections.find(s => s.id === fromSec);
+      if (!sec) return;
+      reorder(sec.items, fromId, toId);
+    } else {
+      const fromSection = STATE.budgetSections.find(s => s.id === fromSec);
+      const toSection   = STATE.budgetSections.find(s => s.id === toSec);
+      if (!fromSection || !toSection) return;
+      const fi = fromSection.items.findIndex(i => i.id === fromId);
+      const [item] = fromSection.items.splice(fi, 1);
+      const ti = toSection.items.findIndex(i => i.id === toId);
+      toSection.items.splice(before ? ti : ti + 1, 0, item);
+    }
     saveToFirebase(); renderBudget();
   } else if (type === 'task') {
     const task = STATE.tasks.find(t => t.id === fromId);
