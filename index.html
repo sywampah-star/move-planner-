@@ -785,31 +785,6 @@
   <div id="tab-budget" class="tab-content">
     <div class="stats-row" id="budget-stats"></div>
 
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-header"><div class="card-title">Adjust your estimates</div></div>
-      <div class="slider-wrap">
-        <div class="slider-label-row">
-          <span class="slider-label">Monthly rent</span>
-          <span class="slider-val" id="sv-rent">$1,100</span>
-        </div>
-        <input type="range" min="500" max="2500" step="50" id="sl-rent" value="1100" oninput="updateBudget()">
-      </div>
-      <div class="slider-wrap">
-        <div class="slider-label-row">
-          <span class="slider-label">Eating out / month</span>
-          <span class="slider-val" id="sv-dining">$150</span>
-        </div>
-        <input type="range" min="0" max="500" step="25" id="sl-dining" value="150" oninput="updateBudget()">
-      </div>
-      <div class="slider-wrap">
-        <div class="slider-label-row">
-          <span class="slider-label">Entertainment / month</span>
-          <span class="slider-val" id="sv-fun">$100</span>
-        </div>
-        <input type="range" min="0" max="400" step="25" id="sl-fun" value="100" oninput="updateBudget()">
-      </div>
-    </div>
-
     <div class="filter-row">
       <button class="filter-pill active" onclick="setBudgetFilter('all',this)">All</button>
       <button class="filter-pill" onclick="setBudgetFilter('arrival',this)">Arrival month</button>
@@ -1214,17 +1189,7 @@ function applyRemoteData(data) {
   if (data.flightLegs !== undefined) STATE.flightLegs = data.flightLegs || [];
   if (data.customsSections !== undefined) STATE.customsSections = data.customsSections || [];
 
-  if (data.sliders) {
-    const rent = data.sliders.rent || 1100;
-    const dining = data.sliders.dining || 150;
-    const fun = data.sliders.fun || 100;
-    document.getElementById('sl-rent').value = rent;
-    document.getElementById('sl-dining').value = dining;
-    document.getElementById('sl-fun').value = fun;
-    document.getElementById('sv-rent').textContent = '$' + rent.toLocaleString();
-    document.getElementById('sv-dining').textContent = '$' + dining.toLocaleString();
-    document.getElementById('sv-fun').textContent = '$' + fun.toLocaleString();
-  }
+  // sliders removed — no slider state to apply
 
   renderAll();
 }
@@ -1245,11 +1210,6 @@ function saveToFirebase() {
       budgetItems: STATE.budgetItems,
       flightLegs: STATE.flightLegs,
       customsSections: STATE.customsSections,
-      sliders: {
-        rent: parseInt(document.getElementById('sl-rent').value) || 1100,
-        dining: parseInt(document.getElementById('sl-dining').value) || 150,
-        fun: parseInt(document.getElementById('sl-fun').value) || 100,
-      },
       lastModified: Date.now(),
     };
     dbRef.set(data)
@@ -1386,11 +1346,14 @@ const SANDRA_DATA = {
     { id: 'b4', label: 'Toiletries & personal care restock', note: 'Skincare, haircare, pharmacy basics', type: 'arrival', amount: 150, icon: '🧴' },
     { id: 'b5', label: 'Admin fees (SSN, printing, misc)', note: 'SSN is free; misc ~$20', type: 'arrival', amount: 20, icon: '📋' },
     { id: 'b6', label: 'Emergency buffer', note: 'Strongly recommended — things always come up', type: 'arrival', amount: 500, icon: '🛡' },
-    { id: 'b7', label: 'Utilities (electricity + internet)', note: 'NYSEG + Spectrum/Verizon; may be included in rent', type: 'monthly', amount: 120, icon: '💡' },
-    { id: 'b8', label: 'Groceries', note: 'Wegmans is best value; budget cooking helps', type: 'monthly', amount: 300, icon: '🛒' },
-    { id: 'b9', label: 'Health insurance (Cornell plan)', note: '~$300–$400/month; waivable with equivalent US coverage', type: 'monthly', amount: 350, icon: '🏥' },
-    { id: 'b10', label: 'Phone plan', note: 'T-Mobile or Mint Mobile prepaid', type: 'monthly', amount: 40, icon: '📱' },
-    { id: 'b11', label: 'Transport', note: 'TCAT buses free with Cornell ID; occasional Uber/Lyft', type: 'monthly', amount: 30, icon: '🚌' },
+    { id: 'b7', label: 'Rent', note: 'Off-campus apartment; first payment due August', type: 'monthly', amount: 1100 },
+    { id: 'b8', label: 'Utilities (electricity + internet)', note: 'NYSEG + Spectrum/Verizon; may be included in rent', type: 'monthly', amount: 120 },
+    { id: 'b9', label: 'Groceries', note: 'Wegmans is best value; budget cooking helps', type: 'monthly', amount: 300 },
+    { id: 'b10', label: 'Health insurance (Cornell plan)', note: '~$300–$400/month; waivable with equivalent US coverage', type: 'monthly', amount: 350 },
+    { id: 'b11', label: 'Phone plan', note: 'T-Mobile or Mint Mobile prepaid', type: 'monthly', amount: 40 },
+    { id: 'b12', label: 'Transport', note: 'TCAT buses free with Cornell ID; occasional Uber/Lyft', type: 'monthly', amount: 30 },
+    { id: 'b13', label: 'Eating out / cafes', note: 'Restaurants and coffee shops', type: 'monthly', amount: 150 },
+    { id: 'b14', label: 'Entertainment & social', note: 'Events, trips, nights out with cohort', type: 'monthly', amount: 100 },
   ],
   flightLegs: [
     { id: 'fl1', type: 'flight', from: 'ACC', to: 'JFK', airline: 'Delta DL157', date: 'July 2026', note: 'Nonstop · ~11h 15m · Departs ~09:30' },
@@ -1617,68 +1580,51 @@ function confirmAddSection() {
 // ============================================================
 // BUDGET
 // ============================================================
-function updateBudget() {
-  const rent = parseInt(document.getElementById('sl-rent').value);
-  const dining = parseInt(document.getElementById('sl-dining').value);
-  const fun = parseInt(document.getElementById('sl-fun').value);
-  document.getElementById('sv-rent').textContent = '$' + rent.toLocaleString();
-  document.getElementById('sv-dining').textContent = '$' + dining.toLocaleString();
-  document.getElementById('sv-fun').textContent = '$' + fun.toLocaleString();
-  saveToFirebase();
-  renderBudget();
-}
 function renderBudget() {
-  const rent = parseInt(document.getElementById('sl-rent').value);
-  const dining = parseInt(document.getElementById('sl-dining').value);
-  const fun = parseInt(document.getElementById('sl-fun').value);
-  const allItems = [
-    ...STATE.budgetItems,
-    { id: '_rent', label: 'Rent (monthly)', note: 'First payment due August; no deposit required', type: 'monthly', amount: rent, icon: '🏠' },
-    { id: '_dining', label: 'Eating out / cafes', note: 'Restaurants and coffee shops', type: 'monthly', amount: dining, icon: '🍽' },
-    { id: '_fun', label: 'Entertainment & social', note: 'Events, trips, dining with cohort', type: 'monthly', amount: fun, icon: '🎉' },
-  ];
-  const visible = allItems.filter(i => {
+  const visible = STATE.budgetItems.filter(i => {
     if (budgetFilter === 'arrival') return i.type === 'arrival';
     if (budgetFilter === 'monthly') return i.type === 'monthly';
     return true;
   });
-  const arrivalTotal = allItems.filter(i=>i.type==='arrival').reduce((a,i)=>a+i.amount,0);
-  const monthlyTotal = allItems.filter(i=>i.type==='monthly').reduce((a,i)=>a+i.amount,0);
+  const arrivalTotal = STATE.budgetItems.filter(i=>i.type==='arrival').reduce((a,i)=>a+i.amount,0);
+  const monthlyTotal = STATE.budgetItems.filter(i=>i.type==='monthly').reduce((a,i)=>a+i.amount,0);
   document.getElementById('budget-stats').innerHTML = `
     <div class="stat-card"><div class="stat-num">$${arrivalTotal.toLocaleString()}</div><div class="stat-label">Arrival month</div></div>
     <div class="stat-card"><div class="stat-num">$${monthlyTotal.toLocaleString()}</div><div class="stat-label">Monthly ongoing</div></div>
     <div class="stat-card"><div class="stat-num">$${(arrivalTotal+monthlyTotal).toLocaleString()}</div><div class="stat-label">Combined total</div></div>
   `;
-  const maxAmt = Math.max(...visible.map(i=>i.amount), 1);
   const arrivalItems = visible.filter(i => i.type === 'arrival');
   const monthlyItems = visible.filter(i => i.type === 'monthly');
   let html = '';
   if (arrivalItems.length) {
     html += '<div class="section-header">Arrival month — one-time costs</div><div class="card">';
-    html += arrivalItems.map(item => budgetRowHTML(item, maxAmt)).join('');
+    html += arrivalItems.map(item => budgetRowHTML(item)).join('');
     html += '</div>';
   }
   if (monthlyItems.length) {
     html += '<div class="section-header">Monthly ongoing</div><div class="card">';
-    html += monthlyItems.map(item => budgetRowHTML(item, maxAmt)).join('');
+    html += monthlyItems.map(item => budgetRowHTML(item)).join('');
     html += '</div>';
   }
-  if (!visible.length) html = '<div class="empty-state"><div class="icon">💰</div><p>No items. Add a budget line to get started.</p></div>';
+  if (!visible.length) html = '<div class="empty-state"><div class="icon" style="font-size:32px;margin-bottom:8px">💰</div><p>No items. Add a budget line to get started.</p></div>';
   document.getElementById('budget-sections').innerHTML = html;
 }
-function budgetRowHTML(item, maxAmt) {
-  const pct = Math.round(item.amount / maxAmt * 100);
-  const isEditable = !item.id.startsWith('_');
-  const color = item.type === 'arrival' ? 'var(--terracotta)' : 'var(--amber)';
+function budgetRowHTML(item) {
   return `<div class="budget-row">
-    <div class="budget-info">
+    <div class="budget-info" style="flex:1;min-width:0">
       <div class="budget-label">${item.label}</div>
-      <div class="budget-note">${item.note || ''}</div>
+      <div class="budget-note" contenteditable="true"
+        onblur="editBudgetNote('${item.id}',this.textContent)"
+        style="outline:none;cursor:text"
+        onfocus="this.style.background='var(--cream-dark)';this.style.borderRadius='4px';this.style.padding='1px 4px';this.style.margin='0 -4px'"
+        onblur2="this.style.background='';this.style.padding='';this.style.margin=''"
+        >${item.note || ''}</div>
     </div>
-    <div class="budget-bar-wrap"><div class="budget-bar-fill" style="width:${pct}%;background:${color}"></div></div>
     <span class="badge ${item.type === 'arrival' ? 'badge-terra' : 'badge-amber'}">${item.type === 'arrival' ? 'arrival' : 'monthly'}</span>
     <span class="budget-amount editable-amount" onclick="editBudgetAmount(this,'${item.id}')" title="Click to edit">$${item.amount.toLocaleString()}</span>
-    ${isEditable ? `<div class="pack-actions" style="display:flex;gap:4px"><button class="btn btn-sm btn-danger" onclick="deleteBudgetItem('${item.id}')">×</button></div>` : ''}
+    <div class="pack-actions" style="display:flex;gap:4px">
+      <button class="btn btn-sm btn-danger" onclick="deleteBudgetItem('${item.id}')">×</button>
+    </div>
   </div>`;
 }
 function setBudgetFilter(f, btn) {
@@ -1705,11 +1651,12 @@ function deleteBudgetItem(id) {
   saveToFirebase();
   renderBudget(); showToast('Item removed');
 }
+function editBudgetNote(itemId, val) {
+  const item = STATE.budgetItems.find(i => i.id === itemId);
+  if (item) { item.note = val.trim(); saveToFirebase(); }
+}
 function editBudgetAmount(el, itemId) {
-  const sliderMap = { '_rent': 'sl-rent', '_dining': 'sl-dining', '_fun': 'sl-fun' };
-  const currentVal = itemId.startsWith('_')
-    ? parseInt(document.getElementById(sliderMap[itemId]).value)
-    : (STATE.budgetItems.find(i => i.id === itemId) || {}).amount || 0;
+  const currentVal = (STATE.budgetItems.find(i => i.id === itemId) || {}).amount || 0;
 
   const input = document.createElement('input');
   input.type = 'number';
@@ -1719,14 +1666,8 @@ function editBudgetAmount(el, itemId) {
 
   const save = () => {
     const val = Math.max(0, parseInt(input.value) || 0);
-    if (itemId.startsWith('_')) {
-      const slider = document.getElementById(sliderMap[itemId]);
-      if (slider) { slider.value = val; updateBudget(); return; }
-    } else {
-      const item = STATE.budgetItems.find(i => i.id === itemId);
-      if (item) item.amount = val;
-      saveToFirebase();
-    }
+    const item = STATE.budgetItems.find(i => i.id === itemId);
+    if (item) { item.amount = val; saveToFirebase(); }
     renderBudget();
   };
 
