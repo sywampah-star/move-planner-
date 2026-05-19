@@ -577,6 +577,76 @@
     font-size: 12px; color: var(--amber);
   }
 
+  /* COUNTDOWN */
+  .countdown-card {
+    background: linear-gradient(135deg, var(--terracotta) 0%, var(--amber) 100%);
+    border-radius: 14px; padding: 18px 22px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 20px;
+  }
+  .countdown-num {
+    font-family: 'Playfair Display', serif; font-size: 54px; font-weight: 600;
+    line-height: 1; color: #fff; flex-shrink: 0;
+  }
+  .countdown-unit { font-size: 11px; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 0.05em; }
+  .countdown-route { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 2px; }
+  .countdown-when { font-size: 12px; color: rgba(255,255,255,0.82); }
+
+  /* CONNECTION BADGE */
+  .conn-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px 5px 22px; font-size: 11.5px;
+    color: var(--sage); background: var(--sage-pale);
+    border-radius: 0 0 8px 8px; margin: -2px 0 4px;
+  }
+  .conn-badge.warn { color: var(--amber); background: var(--amber-pale); }
+  .conn-badge.tight { color: var(--danger); background: var(--danger-pale); }
+
+  /* PRE-DEPARTURE CHECKLIST */
+  .pf-cat {
+    font-size: 11px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.06em; padding: 12px 0 5px;
+    border-top: 1px solid var(--border-light); margin-top: 4px;
+  }
+  .pf-cat:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+  .pf-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0; border-top: 1px solid var(--border-light);
+  }
+  .pf-row input[type=checkbox] {
+    width: 15px; height: 15px; accent-color: var(--terracotta); flex-shrink: 0; cursor: pointer;
+  }
+  .pf-lbl { flex: 1; font-size: 13px; cursor: pointer; }
+  .pf-row.pf-done .pf-lbl { text-decoration: line-through; color: var(--text-muted); }
+  .pf-del { opacity: 0; transition: opacity 0.15s; }
+  .pf-row:hover .pf-del { opacity: 1; }
+  .pf-add-row { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-light); }
+
+  /* CARRY-ON PILL ON PACK ITEMS */
+  .co-pill {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 10px; border-radius: 4px; padding: 2px 6px;
+    flex-shrink: 0; white-space: nowrap; cursor: pointer;
+    color: var(--text-muted); background: transparent;
+    border: 1px solid var(--border); transition: all 0.15s;
+  }
+  .co-pill.active { color: var(--terracotta); background: var(--terracotta-pale); border-color: var(--terracotta-pale); }
+
+  /* CARRY-ON SUMMARY ITEMS */
+  .co-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; padding: 6px 0; border-top: 1px solid var(--border-light);
+  }
+  .co-item:first-of-type { border-top: none; }
+  .co-sec-label { font-size: 10px; color: var(--text-muted); background: var(--cream-dark); border-radius: 3px; padding: 1px 5px; flex-shrink: 0; }
+
+  /* LINK CARD */
+  .link-card {
+    display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+    background: var(--sage-pale); border-radius: 12px; margin-top: 16px;
+    cursor: pointer; border: 1.5px solid transparent; transition: border-color 0.15s;
+  }
+  .link-card:hover { border-color: var(--sage); }
+
   /* CUSTOMS */
   .customs-section { margin-bottom: 20px; }
   .customs-q {
@@ -1066,11 +1136,18 @@
     <div class="form-row">
       <input class="form-input flex-1" id="leg-airline" placeholder="Airline & flight no. (optional)">
     </div>
-    <div class="form-row">
-      <input class="form-input flex-1" id="leg-date" placeholder="Date (e.g. 15 July 2026)" type="text">
+    <div class="form-row" style="gap:12px">
+      <div style="flex:1">
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Departure</label>
+        <input class="form-input" id="leg-depart" type="datetime-local" style="width:100%">
+      </div>
+      <div style="flex:1">
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Arrival</label>
+        <input class="form-input" id="leg-arrive" type="datetime-local" style="width:100%">
+      </div>
     </div>
     <div class="form-row">
-      <input class="form-input flex-1" id="leg-note" placeholder="Notes (e.g. nonstop, 11h 15m)">
+      <input class="form-input flex-1" id="leg-note" placeholder="Notes (optional, e.g. nonstop)">
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('add-leg-modal')">Cancel</button>
@@ -1332,6 +1409,7 @@ function setupFirebaseSync() {
 function applyRemoteData(data) {
   if (data.packSections !== undefined) STATE.packSections = data.packSections || [];
   if (data.flightLegs !== undefined) STATE.flightLegs = data.flightLegs || [];
+  if (data.flightChecklist !== undefined) STATE.flightChecklist = data.flightChecklist || [];
   if (data.customsSections !== undefined) STATE.customsSections = data.customsSections || [];
 
   if (data.budgetSections !== undefined) {
@@ -1365,6 +1443,7 @@ function saveToFirebase() {
       packSections: STATE.packSections,
       budgetSections: STATE.budgetSections,
       flightLegs: STATE.flightLegs,
+      flightChecklist: STATE.flightChecklist,
       customsSections: STATE.customsSections,
       lastModified: Date.now(),
     };
@@ -1516,9 +1595,27 @@ const SANDRA_DATA = {
     ]},
   ],
   flightLegs: [
-    { id: 'fl1', type: 'flight', from: 'ACC', to: 'JFK', airline: 'Delta DL157', date: 'July 2026', note: 'Nonstop · ~11h 15m · Departs ~09:30' },
+    { id: 'fl1', type: 'flight', from: 'ACC', to: 'JFK', airline: 'Delta DL157', depart: '2026-07-15T09:30', arrive: '2026-07-15T20:45', note: 'Nonstop' },
     { id: 'st1', type: 'stay', city: 'New York / New Jersey', duration: 'A few days', note: 'Settle in, explore, sort US admin before heading to Ithaca' },
-    { id: 'fl2', type: 'flight', from: 'JFK', to: 'ITH', airline: 'Delta', date: 'July 2026', note: 'Regional jet · ~1h 20m · Multiple daily departures' },
+    { id: 'fl2', type: 'flight', from: 'JFK', to: 'ITH', airline: 'Delta', depart: '2026-07-18T09:00', arrive: '2026-07-18T10:20', note: 'Regional jet' },
+  ],
+  flightChecklist: [
+    { id: 'fc1',  label: 'Passport (valid 6+ months beyond program end)', cat: 'Documents', checked: false },
+    { id: 'fc2',  label: 'F-1 visa stamp + I-20 form (original — never check this)', cat: 'Documents', checked: false },
+    { id: 'fc3',  label: 'University admission letter', cat: 'Documents', checked: false },
+    { id: 'fc4',  label: 'Proof of funds / scholarship letter', cat: 'Documents', checked: false },
+    { id: 'fc5',  label: 'Boarding pass downloaded or printed', cat: 'Documents', checked: false },
+    { id: 'fc6',  label: 'Arrival address written on paper', cat: 'Documents', checked: false },
+    { id: 'fc7',  label: 'Online check-in completed (24h before departure)', cat: 'Day of travel', checked: false },
+    { id: 'fc8',  label: 'Luggage weight within airline limits', cat: 'Day of travel', checked: false },
+    { id: 'fc9',  label: 'Bank notified of international travel', cat: 'Day of travel', checked: false },
+    { id: 'fc10', label: 'US phone plan researched (Mint Mobile, T-Mobile, etc.)', cat: 'Day of travel', checked: false },
+    { id: 'fc11', label: 'USD cash for arrival ($50–100)', cat: 'Day of travel', checked: false },
+    { id: 'fc12', label: 'Laptop & charger', cat: 'Carry-on essentials', checked: false },
+    { id: 'fc13', label: 'Medications in original packaging + any doctor notes', cat: 'Carry-on essentials', checked: false },
+    { id: 'fc14', label: 'One change of clothes', cat: 'Carry-on essentials', checked: false },
+    { id: 'fc15', label: 'Phone charger / power bank', cat: 'Carry-on essentials', checked: false },
+    { id: 'fc16', label: 'Snacks for the journey', cat: 'Carry-on essentials', checked: false },
   ],
   customsSections: [
     { id: 'cs1', q: 'What documents do I need at US customs?', body: 'Carry these in your hand luggage (never checked):\n• Passport with F-1 visa stamp\n• I-20 form (original — most important)\n• Cornell admission letter\n• Proof of funds (bank statement or scholarship letter)\n• Ithaca apartment address written down\n\nThe officer will verify your SEVIS record is active. Make sure your SEVIS fee was paid before you travel.' },
@@ -1541,6 +1638,24 @@ const BLANK_DATA = {
     { id: 'monthly', title: 'Monthly ongoing', type: 'monthly', items: [] },
   ],
   flightLegs: [],
+  flightChecklist: [
+    { id: 'fc1',  label: 'Passport (valid 6+ months beyond program end)', cat: 'Documents', checked: false },
+    { id: 'fc2',  label: 'Visa + I-20 form (original — never check this)', cat: 'Documents', checked: false },
+    { id: 'fc3',  label: 'University admission letter', cat: 'Documents', checked: false },
+    { id: 'fc4',  label: 'Proof of funds / scholarship letter', cat: 'Documents', checked: false },
+    { id: 'fc5',  label: 'Boarding pass downloaded or printed', cat: 'Documents', checked: false },
+    { id: 'fc6',  label: 'Arrival address written on paper', cat: 'Documents', checked: false },
+    { id: 'fc7',  label: 'Online check-in completed (24h before departure)', cat: 'Day of travel', checked: false },
+    { id: 'fc8',  label: 'Luggage weight within airline limits', cat: 'Day of travel', checked: false },
+    { id: 'fc9',  label: 'Bank notified of international travel', cat: 'Day of travel', checked: false },
+    { id: 'fc10', label: 'Local phone plan researched', cat: 'Day of travel', checked: false },
+    { id: 'fc11', label: 'Local currency for arrival', cat: 'Day of travel', checked: false },
+    { id: 'fc12', label: 'Laptop & charger', cat: 'Carry-on essentials', checked: false },
+    { id: 'fc13', label: 'Medications in original packaging', cat: 'Carry-on essentials', checked: false },
+    { id: 'fc14', label: 'One change of clothes', cat: 'Carry-on essentials', checked: false },
+    { id: 'fc15', label: 'Phone charger / power bank', cat: 'Carry-on essentials', checked: false },
+    { id: 'fc16', label: 'Snacks for the journey', cat: 'Carry-on essentials', checked: false },
+  ],
   customsSections: [],
 };
 
@@ -1713,6 +1828,7 @@ function renderPacking() {
                   >${item.note || ''}</div>
               </div>
               <span class="badge ${item.tag === 'bring' ? 'badge-sage' : 'badge-amber'}">${item.tag === 'bring' ? 'bring' : 'buy'}</span>
+              <button class="co-pill ${item.carryOn ? 'active' : ''}" onclick="toggleCarryOn('${sec.id}','${item.id}')" title="${item.carryOn ? 'In carry-on — click to remove' : 'Mark as carry-on'}">✈</button>
               <div class="pack-actions" style="display:flex;gap:4px">
                 <button class="btn btn-sm" onclick="togglePackTag('${sec.id}','${item.id}')" title="Toggle bring/buy">⇄</button>
                 <button class="btn btn-sm btn-danger" onclick="deletePackItem('${sec.id}','${item.id}')">×</button>
@@ -1799,7 +1915,7 @@ function confirmAddItem(secId) {
   const note = document.getElementById('new-item-note-' + secId).value.trim();
   const tag = document.getElementById('new-item-tag-' + secId).value;
   const sec = STATE.packSections.find(s => s.id === secId);
-  sec.items.push({ id: uid(), label, note, tag, checked: false });
+  sec.items.push({ id: uid(), label, note, tag, checked: false, carryOn: false });
   saveToFirebase();
   renderPacking(); showToast('Item added');
 }
@@ -2154,52 +2270,180 @@ function editBudgetAmount(el, secId, itemId) {
 // ============================================================
 // FLIGHTS
 // ============================================================
+// ── Flight helpers ──────────────────────────────────────────────
+function fmtDatetime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) +
+    ' at ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+function fmtDuration(ms) {
+  if (ms <= 0) return '0m';
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 function renderFlights() {
   const wrap = document.getElementById('flight-legs-wrap');
-  if (!STATE.flightLegs.length) {
-    wrap.innerHTML = '<div class="empty-state"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px;color:var(--text-muted)"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19.5 2.5c-1.5-1.5-3.5-1.5-5 0L11 6 2.8 3.2 1.4 4.6 8 11.1l-3.5 3.4H2l-1 1 3 1 1 3 1-1V16l3.5-3.4z"/></svg><p style="font-weight:500">No legs yet</p><p style="font-size:12px;color:var(--text-muted);margin-top:4px">Add your flights and stopovers to build your full journey.</p></div>';
-    return;
-  }
-  let html = '<div class="card"><div class="card-title" style="margin-bottom:14px">Your journey</div>';
-  STATE.flightLegs.forEach((leg, i) => {
-    if (leg.type === 'flight') {
-      html += `<div class="flight-leg">
-        <div>
-          <div class="leg-dot"></div>
-          ${i < STATE.flightLegs.length - 1 ? '<div class="leg-connector"></div>' : ''}
-        </div>
-        <div class="leg-info" style="flex:1">
-          <div class="leg-airports">${leg.from} → ${leg.to}</div>
-          <div class="leg-detail">${leg.airline || ''}</div>
-          <div class="leg-date">${leg.date || ''}${leg.note ? ' · ' + leg.note : ''}</div>
-        </div>
-        <div class="leg-actions">
-          <button class="btn btn-sm btn-icon" onclick="editLeg('${leg.id}')" title="Edit">✎</button>
-          <button class="btn btn-sm btn-danger btn-icon" onclick="deleteLeg('${leg.id}')" title="Remove">×</button>
-        </div>
-      </div>`;
-    } else {
-      html += `<div style="padding:6px 0 6px 22px">
-        <div class="stay-badge">
-          <span>🏙</span>
-          <div style="flex:1">
-            <div style="font-weight:500">${leg.city}</div>
-            <div style="font-size:11px;color:var(--amber)">${leg.duration}${leg.note ? ' — ' + leg.note : ''}</div>
-          </div>
-          <button class="btn btn-sm btn-icon" onclick="editLeg('${leg.id}')" title="Edit">✎</button>
-          <button class="btn btn-sm btn-danger btn-icon" onclick="deleteLeg('${leg.id}')" title="Remove">×</button>
-        </div>
-        ${i < STATE.flightLegs.length - 1 ? '<div style="width:1px;height:16px;background:var(--border);margin-left:10px"></div>' : ''}
-      </div>`;
+  const html = [];
+
+  // ── 1. COUNTDOWN ──────────────────────────────────────────────
+  const now = Date.now();
+  let nextFlight = null;
+  for (const leg of STATE.flightLegs) {
+    if (leg.type === 'flight' && leg.depart) {
+      const t = new Date(leg.depart).getTime();
+      if (t > now) { nextFlight = { leg, ms: t - now }; break; }
     }
+  }
+  if (nextFlight) {
+    const days = Math.floor(nextFlight.ms / 86400000);
+    const hrs  = Math.floor((nextFlight.ms % 86400000) / 3600000);
+    html.push(`<div class="countdown-card">
+      <div style="text-align:center;flex-shrink:0">
+        <div class="countdown-num">${days}</div>
+        <div class="countdown-unit">days</div>
+      </div>
+      <div>
+        <div class="countdown-route">${nextFlight.leg.from} → ${nextFlight.leg.to}</div>
+        <div class="countdown-when">${fmtDatetime(nextFlight.leg.depart)}</div>
+        ${nextFlight.leg.airline ? `<div class="countdown-when" style="margin-top:2px">${nextFlight.leg.airline}</div>` : ''}
+        ${hrs > 0 ? `<div class="countdown-when" style="margin-top:2px">${hrs}h to go on the day</div>` : ''}
+      </div>
+    </div>`);
+  }
+
+  // ── 2. JOURNEY TIMELINE ───────────────────────────────────────
+  if (STATE.flightLegs.length) {
+    const tl = ['<div class="card"><div class="card-title" style="margin-bottom:14px">Your journey</div>'];
+    STATE.flightLegs.forEach((leg, i) => {
+      const isLast = i === STATE.flightLegs.length - 1;
+      if (leg.type === 'flight') {
+        const dStr = leg.depart ? fmtDatetime(leg.depart) : (leg.date || '');
+        const aStr = leg.arrive ? fmtDatetime(leg.arrive) : '';
+        const dur  = (leg.depart && leg.arrive) ? fmtDuration(new Date(leg.arrive) - new Date(leg.depart)) : '';
+        tl.push(`<div class="flight-leg">
+          <div>
+            <div class="leg-dot"></div>
+            ${!isLast ? '<div class="leg-connector"></div>' : ''}
+          </div>
+          <div class="leg-info" style="flex:1">
+            <div class="leg-airports">${leg.from} → ${leg.to}</div>
+            <div class="leg-detail">${[leg.airline, dur].filter(Boolean).join(' · ')}</div>
+            <div class="leg-date">${dStr}${aStr ? ' → ' + aStr : ''}${leg.note ? ' · ' + leg.note : ''}</div>
+          </div>
+          <div class="leg-actions">
+            <button class="btn btn-sm btn-icon" onclick="editLeg('${leg.id}')" title="Edit">✎</button>
+            <button class="btn btn-sm btn-danger btn-icon" onclick="deleteLeg('${leg.id}')" title="Remove">×</button>
+          </div>
+        </div>`);
+        // Connection badge: only if the immediately next leg is a flight (no stay in between)
+        if (!isLast && STATE.flightLegs[i + 1]?.type === 'flight') {
+          const nxt = STATE.flightLegs[i + 1];
+          if (leg.arrive && nxt.depart) {
+            const conn = new Date(nxt.depart) - new Date(leg.arrive);
+            if (conn > 0) {
+              const cls  = conn < 90 * 60000 ? 'tight' : conn < 2 * 3600000 ? 'warn' : '';
+              const icon = conn < 90 * 60000 ? '⚠️' : '⏱';
+              const note = conn < 90 * 60000 ? ' — tight, could be risky for international arrivals' : conn < 2 * 3600000 ? ' — check airline minimum connection time' : '';
+              tl.push(`<div class="conn-badge ${cls}">${icon} ${fmtDuration(conn)} to connect at ${leg.to}${note}</div>`);
+            }
+          }
+        }
+      } else {
+        tl.push(`<div style="padding:6px 0 6px 22px">
+          <div class="stay-badge">
+            <span>🏙</span>
+            <div style="flex:1">
+              <div style="font-weight:500">${leg.city}</div>
+              <div style="font-size:11px;color:var(--amber)">${leg.duration}${leg.note ? ' — ' + leg.note : ''}</div>
+            </div>
+            <button class="btn btn-sm btn-icon" onclick="editLeg('${leg.id}')" title="Edit">✎</button>
+            <button class="btn btn-sm btn-danger btn-icon" onclick="deleteLeg('${leg.id}')" title="Remove">×</button>
+          </div>
+          ${!isLast ? '<div style="width:1px;height:16px;background:var(--border);margin-left:10px"></div>' : ''}
+        </div>`);
+      }
+    });
+    tl.push('</div>');
+    html.push(tl.join(''));
+  } else {
+    html.push('<div class="empty-state"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px;color:var(--text-muted)"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19.5 2.5c-1.5-1.5-3.5-1.5-5 0L11 6 2.8 3.2 1.4 4.6 8 11.1l-3.5 3.4H2l-1 1 3 1 1 3 1-1V16l3.5-3.4z"/></svg><p style="font-weight:500">No legs yet</p><p style="font-size:12px;color:var(--text-muted);margin-top:4px">Add your flights and stopovers to build your full journey.</p></div>');
+  }
+
+  // ── 3. PRE-DEPARTURE CHECKLIST ────────────────────────────────
+  const cats = [...new Set(STATE.flightChecklist.map(i => i.cat))];
+  const done = STATE.flightChecklist.filter(i => i.checked).length;
+  const total = STATE.flightChecklist.length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const pfLines = [`<div class="card" style="margin-top:16px">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title">Pre-departure checklist</div>
+      <span style="font-size:12px;color:${pct === 100 ? 'var(--success)' : 'var(--text-muted)'}">${done}/${total} done</span>
+    </div>
+    <div style="height:4px;background:var(--border-light);border-radius:2px;margin-bottom:14px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:var(--terracotta);border-radius:2px;transition:width 0.3s"></div>
+    </div>`];
+  cats.forEach(cat => {
+    pfLines.push(`<div class="pf-cat">${cat}</div>`);
+    STATE.flightChecklist.filter(i => i.cat === cat).forEach(item => {
+      pfLines.push(`<div class="pf-row ${item.checked ? 'pf-done' : ''}">
+        <input type="checkbox" id="pf-${item.id}" ${item.checked ? 'checked' : ''} onchange="checkPfItem('${item.id}',this.checked)">
+        <label class="pf-lbl" for="pf-${item.id}">${item.label}</label>
+        <button class="btn btn-sm btn-icon pf-del" onclick="deletePfItem('${item.id}')" title="Remove">×</button>
+      </div>`);
+    });
   });
-  html += '</div>';
-  wrap.innerHTML = html;
+  pfLines.push(`<div class="pf-add-row">
+    <input class="form-input flex-1" id="pf-new-label" placeholder="Add a custom item...">
+    <select class="form-select" id="pf-new-cat" style="width:auto">
+      ${cats.map(c => `<option value="${c}">${c}</option>`).join('')}
+    </select>
+    <button class="btn btn-sm btn-primary" onclick="addPfItem()">Add</button>
+  </div>`);
+  pfLines.push('</div>');
+  html.push(pfLines.join(''));
+
+  // ── 4. CARRY-ON SUMMARY ────────────────────────────────────────
+  const coItems = STATE.packSections.flatMap(s =>
+    s.items.filter(i => i.carryOn).map(i => ({ ...i, secTitle: s.title }))
+  );
+  const coLines = [`<div class="card" style="margin-top:16px">
+    <div class="card-header" style="margin-bottom:12px">
+      <div class="card-title">Carry-on summary</div>
+      <span style="font-size:12px;color:var(--text-muted)">from your packing list</span>
+    </div>`];
+  if (!coItems.length) {
+    coLines.push('<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:4px 0">No items marked as carry-on yet. In your packing list, click the ✈ button on any item to add it here.</div>');
+  } else {
+    coItems.forEach(item => {
+      coLines.push(`<div class="co-item">
+        <span style="font-size:15px">✈</span>
+        <span style="flex:1">${item.label}</span>
+        <span class="co-sec-label">${item.secTitle}</span>
+      </div>`);
+    });
+  }
+  coLines.push('</div>');
+  html.push(coLines.join(''));
+
+  // ── 5. LINK TO CUSTOMS / NOTES ────────────────────────────────
+  html.push(`<div class="link-card" onclick="showTab('customs')">
+    <div style="flex:1">
+      <div style="font-weight:600;font-size:13px;color:var(--sage)">Customs &amp; arrival notes</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">What to expect at immigration, what to declare, common mistakes</div>
+    </div>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+  </div>`);
+
+  wrap.innerHTML = html.join('');
 }
 function addFlightLeg() {
   editingLegId = null;
   document.getElementById('leg-modal-title').textContent = 'Add flight leg';
-  ['leg-from','leg-to','leg-airline','leg-date','leg-note'].forEach(id => document.getElementById(id).value = '');
+  ['leg-from','leg-to','leg-airline','leg-depart','leg-arrive','leg-note'].forEach(id => document.getElementById(id).value = '');
   openModal('add-leg-modal');
 }
 function editLeg(id) {
@@ -2210,7 +2454,8 @@ function editLeg(id) {
     document.getElementById('leg-from').value = leg.from || '';
     document.getElementById('leg-to').value = leg.to || '';
     document.getElementById('leg-airline').value = leg.airline || '';
-    document.getElementById('leg-date').value = leg.date || '';
+    document.getElementById('leg-depart').value = leg.depart || '';
+    document.getElementById('leg-arrive').value = leg.arrive || '';
     document.getElementById('leg-note').value = leg.note || '';
     openModal('add-leg-modal');
   } else {
@@ -2224,19 +2469,20 @@ function confirmAddLeg() {
   const from = document.getElementById('leg-from').value.trim().toUpperCase();
   const to = document.getElementById('leg-to').value.trim().toUpperCase();
   if (!from || !to) { showToast('From and To airports are required'); return; }
-  const dateRaw = document.getElementById('leg-date').value.trim();
-  if (dateRaw) {
-    const parsed = new Date(dateRaw);
-    const now = new Date();
-    now.setHours(0,0,0,0);
-    if (!isNaN(parsed) && parsed < now) showToast('⚠️ That date is in the past');
+  const depart = document.getElementById('leg-depart').value;
+  const arrive = document.getElementById('leg-arrive').value;
+  if (depart) {
+    const parsed = new Date(depart);
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (!isNaN(parsed) && parsed < today) showToast('⚠️ Departure date is in the past');
   }
   const leg = {
     id: editingLegId || uid(),
     type: 'flight',
     from, to,
     airline: document.getElementById('leg-airline').value.trim(),
-    date: document.getElementById('leg-date').value.trim(),
+    depart,
+    arrive,
     note: document.getElementById('leg-note').value.trim(),
   };
   if (editingLegId) {
@@ -2278,9 +2524,63 @@ function confirmAddStay() {
   renderFlights(); showToast('Stay added');
 }
 function deleteLeg(id) {
-  STATE.flightLegs = STATE.flightLegs.filter(l => l.id !== id);
+  const idx = STATE.flightLegs.findIndex(l => l.id === id);
+  const leg = STATE.flightLegs[idx];
+  STATE.flightLegs.splice(idx, 1);
   saveToFirebase();
-  renderFlights(); showToast('Removed');
+  const label = leg?.type === 'flight' ? `${leg.from} → ${leg.to}` : leg?.city || 'Leg';
+  softDelete(`"${label}" removed`, () => {
+    STATE.flightLegs.splice(idx, 0, leg);
+    renderFlights();
+  });
+  renderFlights();
+}
+
+// ── Carry-on toggle ────────────────────────────────────────────
+function toggleCarryOn(secId, itemId) {
+  const sec = STATE.packSections.find(s => s.id === secId);
+  const item = sec?.items.find(i => i.id === itemId);
+  if (!item) return;
+  item.carryOn = !item.carryOn;
+  saveToFirebase();
+  renderPacking();
+  // refresh flights tab carry-on summary if visible
+  if (document.getElementById('tab-flights')?.classList.contains('active')) renderFlights();
+}
+
+// ── Pre-departure checklist ────────────────────────────────────
+function checkPfItem(id, checked) {
+  const item = STATE.flightChecklist.find(i => i.id === id);
+  if (!item) return;
+  item.checked = checked;
+  saveToFirebase();
+  // Update just the progress bar and row style without full re-render to avoid focus loss
+  const row = document.querySelector(`#pf-${id}`)?.closest('.pf-row');
+  if (row) row.classList.toggle('pf-done', checked);
+  const done = STATE.flightChecklist.filter(i => i.checked).length;
+  const total = STATE.flightChecklist.length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const bar = document.querySelector('.countdown-card + .card .card-header + div > div, .card:has(.pf-cat) .card-header + div > div');
+  // Just re-render flights to update the bar cleanly
+  renderFlights();
+}
+function deletePfItem(id) {
+  const item = STATE.flightChecklist.find(i => i.id === id);
+  STATE.flightChecklist = STATE.flightChecklist.filter(i => i.id !== id);
+  saveToFirebase();
+  softDelete(`"${item?.label || 'Item'}" removed from checklist`, () => {
+    STATE.flightChecklist.push(item);
+    renderFlights();
+  });
+  renderFlights();
+}
+function addPfItem() {
+  const label = document.getElementById('pf-new-label')?.value.trim();
+  if (!label) return;
+  const cat = document.getElementById('pf-new-cat')?.value || 'Documents';
+  STATE.flightChecklist.push({ id: uid(), label, cat, checked: false });
+  saveToFirebase();
+  renderFlights();
 }
 // ============================================================
 // CUSTOMS
