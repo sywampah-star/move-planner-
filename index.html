@@ -317,6 +317,12 @@
   .progress-wrap { height: 3px; background: var(--border-light); border-radius: 2px; margin-bottom: 14px; }
   .progress-fill { height: 100%; background: var(--terracotta); border-radius: 2px; transition: width 0.4s; }
 
+  /* COLLAPSIBLE SECTIONS */
+  .section-toggle { background: none; border: none; cursor: pointer; padding: 4px; color: var(--text-muted); display: flex; align-items: center; transition: transform 0.25s ease; }
+  .section-toggle.collapsed { transform: rotate(-90deg); }
+  .section-body { overflow: hidden; transition: max-height 0.28s ease, opacity 0.2s ease; max-height: 4000px; opacity: 1; }
+  .section-body.collapsed { max-height: 0; opacity: 0; }
+
   /* FILTER ROW */
   .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
   .filter-pill {
@@ -392,6 +398,20 @@
     border-radius: 50%; background: var(--terracotta);
     cursor: pointer; border: 2px solid var(--white);
     box-shadow: 0 1px 4px rgba(193,96,58,0.3);
+  }
+
+  /* EDITABLE AMOUNT */
+  .editable-amount {
+    cursor: pointer; border-radius: 6px; padding: 2px 6px; margin: -2px -6px;
+    transition: background 0.15s;
+  }
+  .editable-amount:hover { background: var(--terracotta-pale); color: var(--terracotta); }
+  .amount-input {
+    width: 80px; font-size: 13px; font-weight: 500;
+    border: 1.5px solid var(--terracotta); border-radius: 6px;
+    padding: 2px 8px; font-family: inherit;
+    background: var(--white); color: var(--text-primary); outline: none;
+    text-align: right;
   }
 
   /* BUDGET TOTALS */
@@ -1173,6 +1193,17 @@ let STATE = JSON.parse(JSON.stringify(SANDRA_DATA));
 let packFilter = 'all';
 let budgetFilter = 'all';
 let editingLegId = null;
+let collapsedSections = new Set(JSON.parse(localStorage.getItem('mw-collapsed') || '[]'));
+
+function toggleSectionCollapse(secId) {
+  if (collapsedSections.has(secId)) collapsedSections.delete(secId);
+  else collapsedSections.add(secId);
+  localStorage.setItem('mw-collapsed', JSON.stringify([...collapsedSections]));
+  const body = document.getElementById('sec-body-' + secId);
+  const btn  = document.getElementById('sec-toggle-' + secId);
+  if (body) body.classList.toggle('collapsed', collapsedSections.has(secId));
+  if (btn)  btn.classList.toggle('collapsed', collapsedSections.has(secId));
+}
 
 // ============================================================
 // UTILS
@@ -1222,12 +1253,14 @@ function renderPacking() {
     });
     const done = sec.items.filter(i => i.checked).length;
     const pct = sec.items.length ? Math.round(done / sec.items.length * 100) : 0;
+    const isCollapsed = collapsedSections.has(sec.id);
     const div = document.createElement('div');
     div.className = 'card';
     div.innerHTML = `
       <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%"></div></div>
       <div class="card-header">
-        <div class="card-title">
+        <div class="card-title" style="cursor:pointer;user-select:none" onclick="toggleSectionCollapse('${sec.id}')">
+          <button class="section-toggle ${isCollapsed ? 'collapsed' : ''}" id="sec-toggle-${sec.id}" tabindex="-1">▾</button>
           ${sec.title}
           ${sec.urgent ? '<span class="badge badge-urgent">urgent</span>' : ''}
         </div>
@@ -1237,38 +1270,40 @@ function renderPacking() {
           <button class="btn btn-sm btn-danger" onclick="deleteSection('${sec.id}')">Remove</button>
         </div>
       </div>
-      ${filtered.length === 0 ? '<div class="empty-state"><p>No items match this filter.</p></div>' :
-        filtered.map(item => `
-          <div class="pack-item" id="pi-${item.id}">
-            <div class="pack-check ${item.checked ? 'checked' : ''}" onclick="togglePackItem('${sec.id}','${item.id}')"></div>
-            <div style="flex:1;min-width:0">
-              <div class="pack-label ${item.checked ? 'done' : ''}" contenteditable="true"
-                onblur="editPackLabel('${sec.id}','${item.id}',this.textContent)"
-                >${item.label}</div>
-              <div class="pack-note" contenteditable="true"
-                onblur="editPackNote('${sec.id}','${item.id}',this.textContent)"
-                >${item.note || ''}</div>
+      <div class="section-body ${isCollapsed ? 'collapsed' : ''}" id="sec-body-${sec.id}">
+        ${filtered.length === 0 ? '<div class="empty-state"><p>No items match this filter.</p></div>' :
+          filtered.map(item => `
+            <div class="pack-item" id="pi-${item.id}">
+              <div class="pack-check ${item.checked ? 'checked' : ''}" onclick="togglePackItem('${sec.id}','${item.id}')"></div>
+              <div style="flex:1;min-width:0">
+                <div class="pack-label ${item.checked ? 'done' : ''}" contenteditable="true"
+                  onblur="editPackLabel('${sec.id}','${item.id}',this.textContent)"
+                  >${item.label}</div>
+                <div class="pack-note" contenteditable="true"
+                  onblur="editPackNote('${sec.id}','${item.id}',this.textContent)"
+                  >${item.note || ''}</div>
+              </div>
+              <span class="badge ${item.tag === 'bring' ? 'badge-sage' : 'badge-amber'}">${item.tag === 'bring' ? 'bring' : 'buy'}</span>
+              <div class="pack-actions" style="display:flex;gap:4px">
+                <button class="btn btn-sm" onclick="togglePackTag('${sec.id}','${item.id}')" title="Toggle bring/buy">⇄</button>
+                <button class="btn btn-sm btn-danger" onclick="deletePackItem('${sec.id}','${item.id}')">×</button>
+              </div>
             </div>
-            <span class="badge ${item.tag === 'bring' ? 'badge-sage' : 'badge-amber'}">${item.tag === 'bring' ? 'bring' : 'buy'}</span>
-            <div class="pack-actions" style="display:flex;gap:4px">
-              <button class="btn btn-sm" onclick="togglePackTag('${sec.id}','${item.id}')" title="Toggle bring/buy">⇄</button>
-              <button class="btn btn-sm btn-danger" onclick="deletePackItem('${sec.id}','${item.id}')">×</button>
-            </div>
+          `).join('')
+        }
+        <div class="add-form" id="add-form-${sec.id}">
+          <div class="form-row">
+            <input class="form-input flex-1" id="new-item-label-${sec.id}" placeholder="Item name">
+            <input class="form-input flex-1" id="new-item-note-${sec.id}" placeholder="Note (optional)">
+            <select class="form-select" id="new-item-tag-${sec.id}">
+              <option value="bring">Bring</option>
+              <option value="buy">Buy at destination</option>
+            </select>
           </div>
-        `).join('')
-      }
-      <div class="add-form" id="add-form-${sec.id}">
-        <div class="form-row">
-          <input class="form-input flex-1" id="new-item-label-${sec.id}" placeholder="Item name">
-          <input class="form-input flex-1" id="new-item-note-${sec.id}" placeholder="Note (optional)">
-          <select class="form-select" id="new-item-tag-${sec.id}">
-            <option value="bring">Bring</option>
-            <option value="buy">Buy at destination</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary btn-sm" onclick="confirmAddItem('${sec.id}')">Add item</button>
-          <button class="btn btn-sm" onclick="closeAddItemForm('${sec.id}')">Cancel</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="confirmAddItem('${sec.id}')">Add item</button>
+            <button class="btn btn-sm" onclick="closeAddItemForm('${sec.id}')">Cancel</button>
+          </div>
         </div>
       </div>
     `;
@@ -1411,7 +1446,7 @@ function budgetRowHTML(item, maxAmt) {
     </div>
     <div class="budget-bar-wrap"><div class="budget-bar-fill" style="width:${pct}%;background:${color}"></div></div>
     <span class="badge ${item.type === 'arrival' ? 'badge-terra' : 'badge-amber'}">${item.type === 'arrival' ? 'arrival' : 'monthly'}</span>
-    <span class="budget-amount">$${item.amount.toLocaleString()}</span>
+    <span class="budget-amount editable-amount" onclick="editBudgetAmount(this,'${item.id}')" title="Click to edit">$${item.amount.toLocaleString()}</span>
     ${isEditable ? `<div class="pack-actions" style="display:flex;gap:4px"><button class="btn btn-sm btn-danger" onclick="deleteBudgetItem('${item.id}')">×</button></div>` : ''}
   </div>`;
 }
@@ -1438,6 +1473,41 @@ function deleteBudgetItem(id) {
   STATE.budgetItems = STATE.budgetItems.filter(i => i.id !== id);
   saveToFirebase();
   renderBudget(); showToast('Item removed');
+}
+function editBudgetAmount(el, itemId) {
+  const sliderMap = { '_rent': 'sl-rent', '_dining': 'sl-dining', '_fun': 'sl-fun' };
+  const currentVal = itemId.startsWith('_')
+    ? parseInt(document.getElementById(sliderMap[itemId]).value)
+    : (STATE.budgetItems.find(i => i.id === itemId) || {}).amount || 0;
+
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = currentVal;
+  input.className = 'amount-input';
+  input.min = 0;
+
+  const save = () => {
+    const val = Math.max(0, parseInt(input.value) || 0);
+    if (itemId.startsWith('_')) {
+      const slider = document.getElementById(sliderMap[itemId]);
+      if (slider) { slider.value = val; updateBudget(); return; }
+    } else {
+      const item = STATE.budgetItems.find(i => i.id === itemId);
+      if (item) item.amount = val;
+      saveToFirebase();
+    }
+    renderBudget();
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.value = currentVal; input.blur(); }
+  });
+
+  el.replaceWith(input);
+  input.focus();
+  input.select();
 }
 
 // ============================================================
