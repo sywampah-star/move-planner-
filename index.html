@@ -545,6 +545,15 @@
   </div>
 </div>
 
+<script>
+  // Show a loading state immediately if returning from Google redirect
+  if (document.referrer.includes('accounts.google.com') || sessionStorage.getItem('gSignInPending')) {
+    document.getElementById('auth-spinner').classList.add('active');
+    document.getElementById('auth-loading-text').textContent = 'Signing you in…';
+    sessionStorage.removeItem('gSignInPending');
+  }
+</script>
+
 <header class="app-header">
   <div class="header-inner">
     <div class="app-logo">move<span>wise</span></div>
@@ -817,16 +826,28 @@ function signInWithGoogle() {
   const spinner = document.getElementById('auth-spinner');
   const loadingText = document.getElementById('auth-loading-text');
   spinner.classList.add('active');
-  loadingText.textContent = 'Signing in…';
+  loadingText.textContent = 'Redirecting to Google…';
 
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch((err) => {
+  // Use redirect (not popup) — works reliably on GitHub Pages and static hosts
+  sessionStorage.setItem('gSignInPending', '1');
+  auth.signInWithRedirect(provider).catch((err) => {
     spinner.classList.remove('active');
     loadingText.textContent = '';
     showToast('Sign-in failed. Please try again.');
     console.error(err);
   });
 }
+
+// Handle the result when Google redirects back to the page
+auth.getRedirectResult().then((result) => {
+  // result.user will be set if coming back from a redirect — onAuthStateChanged handles the rest
+}).catch((err) => {
+  if (err.code !== 'auth/null-redirect-result') {
+    console.error('Redirect sign-in error:', err);
+    document.getElementById('auth-loading-text').textContent = 'Sign-in failed — please try again.';
+  }
+});
 
 function signOutUser() {
   if (!confirm('Sign out of movewise?')) return;
