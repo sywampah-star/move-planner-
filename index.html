@@ -490,16 +490,24 @@
     box-shadow: 0 1px 4px rgba(193,96,58,0.3);
   }
 
-  /* REORDER BUTTONS */
-  .reorder-btn {
-    background: none; border: none; cursor: pointer;
-    font-size: 10px; color: var(--text-muted);
-    padding: 1px 4px; line-height: 1;
-    border-radius: 3px; transition: all 0.15s;
+  /* DRAG TO REORDER */
+  .drag-handle {
+    display: flex; align-items: center; flex-shrink: 0;
+    padding: 0 5px; color: var(--text-muted);
+    opacity: 0.35; cursor: grab; transition: opacity 0.15s;
+    touch-action: none; user-select: none;
   }
-  .reorder-btn:hover:not(:disabled) { color: var(--terracotta); background: var(--terracotta-pale); }
-  .reorder-btn:disabled { opacity: 0.2; cursor: default; }
-  .reorder-col { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+  .drag-handle:hover { opacity: 0.8; }
+  .drag-handle:active { cursor: grabbing; opacity: 1; }
+  .drag-ghost {
+    position: fixed; z-index: 9999; pointer-events: none;
+    box-shadow: 0 8px 28px rgba(92,61,46,0.22);
+    border-radius: 10px; background: var(--white);
+    opacity: 0.92; transform: rotate(1.5deg);
+  }
+  .drag-src { opacity: 0.3 !important; }
+  .drag-over-top    { box-shadow: 0 -2px 0 0 var(--terracotta) !important; }
+  .drag-over-bottom { box-shadow: 0  2px 0 0 var(--terracotta) !important; }
 
   /* CURRENCY SELECT */
   .currency-select {
@@ -1499,8 +1507,7 @@ function renderPacking() {
   `;
   const wrap = document.getElementById('pack-sections');
   wrap.innerHTML = '';
-  const totalSections = STATE.packSections.length;
-  STATE.packSections.forEach((sec, secIdx) => {
+  STATE.packSections.forEach((sec) => {
     const filtered = sec.items.filter(item => {
       if (packFilter === 'bring') return item.tag === 'bring';
       if (packFilter === 'buy') return item.tag === 'buy';
@@ -1512,14 +1519,13 @@ function renderPacking() {
     const isCollapsed = collapsedSections.has(sec.id);
     const div = document.createElement('div');
     div.className = 'card';
+    div.dataset.dndType = 'section';
+    div.dataset.dndId   = sec.id;
     div.innerHTML = `
       <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%"></div></div>
       <div class="card-header">
-        <div style="display:flex;align-items:center;gap:4px">
-          <div class="reorder-col">
-            <button class="reorder-btn" onclick="moveSection('${sec.id}',-1)" ${secIdx === 0 ? 'disabled' : ''} title="Move up">▲</button>
-            <button class="reorder-btn" onclick="moveSection('${sec.id}',1)" ${secIdx === totalSections - 1 ? 'disabled' : ''} title="Move down">▼</button>
-          </div>
+        <div style="display:flex;align-items:center;gap:2px">
+          <span class="drag-handle" onpointerdown="startDrag(event,'section','${sec.id}',null)" title="Drag to reorder">${GRIP}</span>
           <div class="card-title" style="cursor:pointer;user-select:none" onclick="toggleSectionCollapse('${sec.id}')">
             <button class="section-toggle ${isCollapsed ? 'collapsed' : ''}" id="sec-toggle-${sec.id}" tabindex="-1">▾</button>
             ${sec.title}
@@ -1535,14 +1541,9 @@ function renderPacking() {
       </div>
       <div class="section-body ${isCollapsed ? 'collapsed' : ''}" id="sec-body-${sec.id}">
         ${filtered.length === 0 ? '<div class="empty-state"><p>No items match this filter.</p></div>' :
-          filtered.map((item, itemIdx) => {
-            const totalFiltered = filtered.length;
-            return `
-            <div class="pack-item" id="pi-${item.id}">
-              <div class="reorder-col" style="margin-right:2px">
-                <button class="reorder-btn" onclick="movePackItem('${sec.id}','${item.id}',-1)" ${itemIdx === 0 ? 'disabled' : ''} title="Move up">▲</button>
-                <button class="reorder-btn" onclick="movePackItem('${sec.id}','${item.id}',1)" ${itemIdx === totalFiltered - 1 ? 'disabled' : ''} title="Move down">▼</button>
-              </div>
+          filtered.map((item) => `
+            <div class="pack-item" id="pi-${item.id}" data-dnd-type="item" data-dnd-id="${item.id}" data-dnd-sec="${sec.id}">
+              <span class="drag-handle" onpointerdown="startDrag(event,'item','${item.id}','${sec.id}')" title="Drag to reorder">${GRIP}</span>
               <div class="pack-check ${item.checked ? 'checked' : ''}" onclick="togglePackItem('${sec.id}','${item.id}')"></div>
               <div style="flex:1;min-width:0">
                 <div class="pack-label ${item.checked ? 'done' : ''}" contenteditable="true"
@@ -1558,7 +1559,7 @@ function renderPacking() {
                 <button class="btn btn-sm btn-danger" onclick="deletePackItem('${sec.id}','${item.id}')">×</button>
               </div>
             </div>
-          `}).join('')
+          `).join('')
         }
         <div class="add-form" id="add-form-${sec.id}">
           <div class="form-row">
@@ -1640,39 +1641,92 @@ function confirmAddItem(secId) {
   saveToFirebase();
   renderPacking(); showToast('Item added');
 }
-function moveBudgetItem(itemId, dir) {
-  const idx = STATE.budgetItems.findIndex(i => i.id === itemId);
-  const item = STATE.budgetItems[idx];
-  // only move within same type group
-  const sameType = STATE.budgetItems.filter(i => i.type === item.type);
-  const typeIdx = sameType.findIndex(i => i.id === itemId);
-  const swapTypeIdx = typeIdx + dir;
-  if (swapTypeIdx < 0 || swapTypeIdx >= sameType.length) return;
-  // find global indices
-  const swapId = sameType[swapTypeIdx].id;
-  const swapIdx = STATE.budgetItems.findIndex(i => i.id === swapId);
-  [STATE.budgetItems[idx], STATE.budgetItems[swapIdx]] = [STATE.budgetItems[swapIdx], STATE.budgetItems[idx]];
-  saveToFirebase();
-  renderBudget();
+// ============================================================
+// DRAG TO REORDER
+// ============================================================
+let dnd = null;
+const GRIP = `<svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="2.5" cy="2.5" r="1.5"/><circle cx="7.5" cy="2.5" r="1.5"/><circle cx="2.5" cy="7" r="1.5"/><circle cx="7.5" cy="7" r="1.5"/><circle cx="2.5" cy="11.5" r="1.5"/><circle cx="7.5" cy="11.5" r="1.5"/></svg>`;
+
+function startDrag(e, type, id, secId) {
+  e.preventDefault();
+  const el = e.currentTarget.closest('[data-dnd-id]');
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const cx = e.clientX, cy = e.clientY;
+
+  const ghost = el.cloneNode(true);
+  ghost.classList.add('drag-ghost');
+  ghost.style.width = rect.width + 'px';
+  ghost.style.left = rect.left + 'px';
+  ghost.style.top  = rect.top  + 'px';
+  document.body.appendChild(ghost);
+  el.classList.add('drag-src');
+
+  dnd = { type, id, secId, el, ghost, ox: cx - rect.left, oy: cy - rect.top };
 }
 
-function moveSection(secId, dir) {
-  const idx = STATE.packSections.findIndex(s => s.id === secId);
-  const swapIdx = idx + dir;
-  if (swapIdx < 0 || swapIdx >= STATE.packSections.length) return;
-  [STATE.packSections[idx], STATE.packSections[swapIdx]] = [STATE.packSections[swapIdx], STATE.packSections[idx]];
-  saveToFirebase();
-  renderPacking();
-}
+document.addEventListener('pointermove', e => {
+  if (!dnd) return;
+  dnd.ghost.style.left = (e.clientX - dnd.ox) + 'px';
+  dnd.ghost.style.top  = (e.clientY - dnd.oy) + 'px';
 
-function movePackItem(secId, itemId, dir) {
-  const sec = STATE.packSections.find(s => s.id === secId);
-  const idx = sec.items.findIndex(i => i.id === itemId);
-  const swapIdx = idx + dir;
-  if (swapIdx < 0 || swapIdx >= sec.items.length) return;
-  [sec.items[idx], sec.items[swapIdx]] = [sec.items[swapIdx], sec.items[idx]];
-  saveToFirebase();
-  renderPacking();
+  dnd.ghost.style.display = 'none';
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  dnd.ghost.style.display = '';
+
+  document.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(el => el.classList.remove('drag-over-top','drag-over-bottom'));
+  const target = under?.closest(`[data-dnd-type="${dnd.type}"]`);
+  if (!target || target.dataset.dndId === dnd.id) return;
+  if (dnd.type === 'item' && target.dataset.dndSec !== dnd.secId) return;
+  if (dnd.type === 'budget') {
+    const fromItem = STATE.budgetItems.find(i => i.id === dnd.id);
+    const toItem   = STATE.budgetItems.find(i => i.id === target.dataset.dndId);
+    if (fromItem?.type !== toItem?.type) return;
+  }
+  const mid = target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
+  target.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bottom');
+});
+
+document.addEventListener('pointerup', e => {
+  if (!dnd) return;
+  dnd.ghost.style.display = 'none';
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  dnd.ghost.style.display = '';
+
+  const target = under?.closest(`[data-dnd-type="${dnd.type}"]`);
+  if (target && target.dataset.dndId !== dnd.id) {
+    const before = e.clientY < target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
+    dndDrop(dnd.type, dnd.id, target.dataset.dndId, dnd.secId, target.dataset.dndSec, before);
+  }
+
+  dnd.ghost.remove();
+  dnd.el.classList.remove('drag-src');
+  document.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(el => el.classList.remove('drag-over-top','drag-over-bottom'));
+  dnd = null;
+});
+
+function dndDrop(type, fromId, toId, fromSec, toSec, before) {
+  function reorder(arr, fId, tId) {
+    const fi = arr.findIndex(x => x.id === fId);
+    const [item] = arr.splice(fi, 1);
+    const ti = arr.findIndex(x => x.id === tId);
+    arr.splice(before ? ti : ti + 1, 0, item);
+  }
+  if (type === 'section') {
+    reorder(STATE.packSections, fromId, toId);
+    saveToFirebase(); renderPacking();
+  } else if (type === 'item') {
+    if (fromSec !== toSec) return;
+    const sec = STATE.packSections.find(s => s.id === fromSec);
+    reorder(sec.items, fromId, toId);
+    saveToFirebase(); renderPacking();
+  } else if (type === 'budget') {
+    const fi = STATE.budgetItems.find(i => i.id === fromId);
+    const ti = STATE.budgetItems.find(i => i.id === toId);
+    if (fi?.type !== ti?.type) return;
+    reorder(STATE.budgetItems, fromId, toId);
+    saveToFirebase(); renderBudget();
+  }
 }
 
 function openAddSectionModal() { openModal('add-section-modal'); }
@@ -1712,23 +1766,20 @@ function renderBudget() {
   let html = '';
   if (arrivalItems.length) {
     html += '<div class="section-header">Arrival month — one-time costs</div><div class="card">';
-    html += arrivalItems.map((item, idx) => budgetRowHTML(item, idx, arrivalItems.length)).join('');
+    html += arrivalItems.map(item => budgetRowHTML(item)).join('');
     html += '</div>';
   }
   if (monthlyItems.length) {
     html += '<div class="section-header">Monthly ongoing</div><div class="card">';
-    html += monthlyItems.map((item, idx) => budgetRowHTML(item, idx, monthlyItems.length)).join('');
+    html += monthlyItems.map(item => budgetRowHTML(item)).join('');
     html += '</div>';
   }
   if (!visible.length) html = '<div class="empty-state"><div class="icon" style="font-size:32px;margin-bottom:8px">💰</div><p>No items. Add a budget line to get started.</p></div>';
   document.getElementById('budget-sections').innerHTML = html;
 }
-function budgetRowHTML(item, typeIdx, typeTotal) {
-  return `<div class="budget-row">
-    <div class="reorder-col" style="margin-right:4px">
-      <button class="reorder-btn" onclick="moveBudgetItem('${item.id}',-1)" ${typeIdx === 0 ? 'disabled' : ''} title="Move up">▲</button>
-      <button class="reorder-btn" onclick="moveBudgetItem('${item.id}',1)" ${typeIdx === typeTotal - 1 ? 'disabled' : ''} title="Move down">▼</button>
-    </div>
+function budgetRowHTML(item) {
+  return `<div class="budget-row" data-dnd-type="budget" data-dnd-id="${item.id}">
+    <span class="drag-handle" onpointerdown="startDrag(event,'budget','${item.id}',null)" title="Drag to reorder">${GRIP}</span>
     <div class="budget-info" style="flex:1;min-width:0">
       <div class="budget-label">${item.label}</div>
       <div class="budget-note" contenteditable="true"
