@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Move Planner</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 <style>
   :root {
     --cream: #FAF6F0;
@@ -44,6 +48,70 @@
     font-size: 14px;
     line-height: 1.6;
   }
+
+  /* AUTH OVERLAY */
+  .auth-overlay {
+    position: fixed; inset: 0;
+    background: var(--brown);
+    z-index: 500;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .auth-overlay.hidden { display: none; }
+  .auth-card {
+    background: var(--cream);
+    border-radius: 20px;
+    padding: 40px 36px;
+    width: 100%; max-width: 380px;
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+  }
+  .auth-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    color: var(--brown);
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+  }
+  .auth-logo span { color: var(--terracotta); }
+  .auth-subtitle {
+    font-size: 13px; color: var(--text-muted);
+    margin-bottom: 24px;
+  }
+  .auth-desc {
+    font-size: 13px; color: var(--text-secondary);
+    line-height: 1.6; margin-bottom: 28px;
+  }
+  .btn-google {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 12px 20px;
+    background: var(--white); border: 1.5px solid var(--border);
+    border-radius: 10px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    color: var(--text-primary); transition: all 0.2s;
+    box-shadow: var(--shadow);
+  }
+  .btn-google:hover { border-color: var(--terracotta); box-shadow: 0 4px 16px rgba(193,96,58,0.15); }
+  .btn-google:active { transform: scale(0.99); }
+  .btn-google svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .auth-note {
+    font-size: 11px; color: var(--text-muted); margin-top: 20px;
+  }
+  .auth-loading {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 13px; color: var(--text-muted); margin-top: 16px;
+    min-height: 20px;
+  }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--terracotta);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .spinner.active { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* HEADER */
   .app-header {
@@ -85,6 +153,40 @@
   .btn-header:hover { background: rgba(250,246,240,0.1); border-color: rgba(250,246,240,0.5); }
   .btn-header.primary { background: var(--terracotta); border-color: var(--terracotta); }
   .btn-header.primary:hover { background: var(--terracotta-light); }
+
+  /* USER CHIP */
+  .user-chip {
+    display: none; align-items: center; gap: 8px;
+  }
+  .user-chip.visible { display: flex; }
+  .user-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid rgba(250,246,240,0.4);
+    object-fit: cover;
+    background: var(--brown-light);
+  }
+  .user-avatar-fallback {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--terracotta);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; color: var(--white);
+    border: 2px solid rgba(250,246,240,0.4);
+  }
+  .user-name {
+    font-size: 12px; color: var(--cream);
+    max-width: 120px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* SYNC INDICATOR */
+  .sync-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--success); flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .sync-dot.syncing { background: var(--amber); animation: pulse 1s ease-in-out infinite; }
+  .sync-dot.error { background: var(--terracotta); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
   /* TABS */
   .tabs-bar {
@@ -220,7 +322,7 @@
   .filter-pill {
     font-size: 12px; padding: 5px 14px; border-radius: 20px;
     border: 1px solid var(--border); background: var(--white);
-    color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+    color: var(--text-muted); cursor: pointer; transition: all 0.15px;
   }
   .filter-pill.active {
     background: var(--terracotta); color: var(--white); border-color: var(--terracotta);
@@ -390,6 +492,7 @@
     .header-inner { height: 50px; }
     .tab-btn { padding: 12px 14px; font-size: 12px; }
     .app-logo { font-size: 15px; }
+    .user-name { display: none; }
   }
 
   /* EDIT INLINE */
@@ -418,10 +521,41 @@
 </head>
 <body>
 
+<!-- AUTH OVERLAY -->
+<div id="auth-overlay" class="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">move<span>wise</span></div>
+    <p class="auth-subtitle">Your move planning companion</p>
+    <p class="auth-desc">Sign in to save your progress and sync across all your devices.</p>
+    <button class="btn-google" onclick="signInWithGoogle()">
+      <!-- Google logo SVG -->
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Sign in with Google
+    </button>
+    <div class="auth-loading">
+      <div class="spinner" id="auth-spinner"></div>
+      <span id="auth-loading-text"></span>
+    </div>
+    <p class="auth-note">Your data is stored privately under your Google account.</p>
+  </div>
+</div>
+
 <header class="app-header">
   <div class="header-inner">
     <div class="app-logo">move<span>wise</span></div>
     <div class="header-actions">
+      <div class="user-chip" id="user-chip">
+        <div class="sync-dot" id="sync-dot" title="Synced"></div>
+        <img class="user-avatar" id="user-avatar" src="" alt="" onerror="this.style.display='none';document.getElementById('user-avatar-fallback').style.display='flex'">
+        <div class="user-avatar-fallback" id="user-avatar-fallback" style="display:none" id="user-avatar-fallback"></div>
+        <span class="user-name" id="user-name"></span>
+        <button class="btn-header" onclick="signOutUser()">Sign out</button>
+      </div>
       <button class="btn-header" onclick="openShareModal()">⬆ Share</button>
       <button class="btn-header" onclick="openTemplateModal()">✦ New from template</button>
     </div>
@@ -654,6 +788,178 @@
 
 <script>
 // ============================================================
+// FIREBASE INIT
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyBmEfgKPIP1UT6M7oA7vZjNcBr9xJJJrB8",
+  authDomain: "move-planner-d94c5.firebaseapp.com",
+  databaseURL: "https://move-planner-d94c5-default-rtdb.firebaseio.com",
+  projectId: "move-planner-d94c5",
+  storageBucket: "move-planner-d94c5.firebasestorage.app",
+  messagingSenderId: "842310377907",
+  appId: "1:842310377907:web:8c8eea35750f4767b16bc6",
+  measurementId: "G-XFWGFHBSDH"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+let currentUser = null;
+let dbRef = null;
+let suppressRemoteSync = false;
+let suppressTimer = null;
+let saveTimer = null;
+
+// ============================================================
+// AUTH
+// ============================================================
+function signInWithGoogle() {
+  const spinner = document.getElementById('auth-spinner');
+  const loadingText = document.getElementById('auth-loading-text');
+  spinner.classList.add('active');
+  loadingText.textContent = 'Signing in…';
+
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch((err) => {
+    spinner.classList.remove('active');
+    loadingText.textContent = '';
+    showToast('Sign-in failed. Please try again.');
+    console.error(err);
+  });
+}
+
+function signOutUser() {
+  if (!confirm('Sign out of movewise?')) return;
+  if (dbRef) dbRef.off();
+  auth.signOut();
+}
+
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    currentUser = user;
+    document.getElementById('auth-overlay').classList.add('hidden');
+    showUserChip(user);
+    setupFirebaseSync();
+  } else {
+    currentUser = null;
+    document.getElementById('auth-overlay').classList.remove('hidden');
+    document.getElementById('user-chip').classList.remove('visible');
+    if (dbRef) { dbRef.off(); dbRef = null; }
+  }
+});
+
+function showUserChip(user) {
+  const chip = document.getElementById('user-chip');
+  const avatar = document.getElementById('user-avatar');
+  const fallback = document.getElementById('user-avatar-fallback');
+  const nameEl = document.getElementById('user-name');
+
+  if (user.photoURL) {
+    avatar.src = user.photoURL;
+    avatar.style.display = 'block';
+    fallback.style.display = 'none';
+  } else {
+    avatar.style.display = 'none';
+    fallback.style.display = 'flex';
+    fallback.textContent = (user.displayName || user.email || '?')[0].toUpperCase();
+  }
+
+  const firstName = user.displayName ? user.displayName.split(' ')[0] : user.email;
+  nameEl.textContent = firstName;
+  chip.classList.add('visible');
+}
+
+// ============================================================
+// FIREBASE SYNC
+// ============================================================
+function setupFirebaseSync() {
+  dbRef = db.ref('users/' + currentUser.uid + '/state');
+
+  dbRef.once('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      applyRemoteData(data);
+      showToast('Data loaded ✓');
+    } else {
+      saveToFirebase();
+      renderAll();
+    }
+
+    // Real-time listener for changes from other devices
+    dbRef.on('value', (snap) => {
+      if (suppressRemoteSync) return;
+      const d = snap.val();
+      if (d) applyRemoteData(d);
+    });
+  });
+}
+
+function applyRemoteData(data) {
+  if (data.packSections !== undefined) STATE.packSections = data.packSections || [];
+  if (data.budgetItems !== undefined) STATE.budgetItems = data.budgetItems || [];
+  if (data.flightLegs !== undefined) STATE.flightLegs = data.flightLegs || [];
+  if (data.customsSections !== undefined) STATE.customsSections = data.customsSections || [];
+
+  if (data.sliders) {
+    const rent = data.sliders.rent || 1100;
+    const dining = data.sliders.dining || 150;
+    const fun = data.sliders.fun || 100;
+    document.getElementById('sl-rent').value = rent;
+    document.getElementById('sl-dining').value = dining;
+    document.getElementById('sl-fun').value = fun;
+    document.getElementById('sv-rent').textContent = '$' + rent.toLocaleString();
+    document.getElementById('sv-dining').textContent = '$' + dining.toLocaleString();
+    document.getElementById('sv-fun').textContent = '$' + fun.toLocaleString();
+  }
+
+  renderAll();
+}
+
+function saveToFirebase() {
+  if (!currentUser) return;
+
+  setSyncStatus('syncing');
+
+  suppressRemoteSync = true;
+  clearTimeout(suppressTimer);
+  suppressTimer = setTimeout(() => { suppressRemoteSync = false; }, 3000);
+
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const data = {
+      packSections: STATE.packSections,
+      budgetItems: STATE.budgetItems,
+      flightLegs: STATE.flightLegs,
+      customsSections: STATE.customsSections,
+      sliders: {
+        rent: parseInt(document.getElementById('sl-rent').value) || 1100,
+        dining: parseInt(document.getElementById('sl-dining').value) || 150,
+        fun: parseInt(document.getElementById('sl-fun').value) || 100,
+      },
+      lastModified: Date.now(),
+    };
+    dbRef.set(data)
+      .then(() => setSyncStatus('synced'))
+      .catch(() => setSyncStatus('error'));
+  }, 800);
+}
+
+function setSyncStatus(status) {
+  const dot = document.getElementById('sync-dot');
+  if (!dot) return;
+  dot.classList.remove('syncing', 'error');
+  if (status === 'syncing') {
+    dot.classList.add('syncing');
+    dot.title = 'Saving…';
+  } else if (status === 'error') {
+    dot.classList.add('error');
+    dot.title = 'Save failed';
+  } else {
+    dot.title = 'All changes saved';
+  }
+}
+
+// ============================================================
 // DATA
 // ============================================================
 const SANDRA_DATA = {
@@ -827,6 +1133,9 @@ function showTab(name, btn) {
   if (name === 'flights') renderFlights();
   if (name === 'customs') renderCustoms();
 }
+function renderAll() {
+  renderPacking(); renderBudget(); renderFlights(); renderCustoms();
+}
 
 // ============================================================
 // PACKING
@@ -915,32 +1224,38 @@ function togglePackItem(secId, itemId) {
   const sec = STATE.packSections.find(s => s.id === secId);
   const item = sec.items.find(i => i.id === itemId);
   item.checked = !item.checked;
+  saveToFirebase();
   renderPacking();
 }
 function togglePackTag(secId, itemId) {
   const sec = STATE.packSections.find(s => s.id === secId);
   const item = sec.items.find(i => i.id === itemId);
   item.tag = item.tag === 'bring' ? 'buy' : 'bring';
+  saveToFirebase();
   renderPacking();
 }
 function editPackLabel(secId, itemId, val) {
   const sec = STATE.packSections.find(s => s.id === secId);
   const item = sec.items.find(i => i.id === itemId);
   item.label = val.trim();
+  saveToFirebase();
 }
 function editPackNote(secId, itemId, val) {
   const sec = STATE.packSections.find(s => s.id === secId);
   const item = sec.items.find(i => i.id === itemId);
   item.note = val.trim();
+  saveToFirebase();
 }
 function deletePackItem(secId, itemId) {
   const sec = STATE.packSections.find(s => s.id === secId);
   sec.items = sec.items.filter(i => i.id !== itemId);
+  saveToFirebase();
   renderPacking(); showToast('Item removed');
 }
 function deleteSection(secId) {
   if (!confirm('Remove this entire category?')) return;
   STATE.packSections = STATE.packSections.filter(s => s.id !== secId);
+  saveToFirebase();
   renderPacking(); showToast('Category removed');
 }
 function openAddItemForm(secId) {
@@ -956,6 +1271,7 @@ function confirmAddItem(secId) {
   const tag = document.getElementById('new-item-tag-' + secId).value;
   const sec = STATE.packSections.find(s => s.id === secId);
   sec.items.push({ id: uid(), label, note, tag, checked: false });
+  saveToFirebase();
   renderPacking(); showToast('Item added');
 }
 function openAddSectionModal() { openModal('add-section-modal'); }
@@ -965,6 +1281,7 @@ function confirmAddSection() {
   STATE.packSections.push({ id: uid(), title: name, urgent: false, items: [] });
   closeModal('add-section-modal');
   document.getElementById('new-section-name').value = '';
+  saveToFirebase();
   renderPacking(); showToast('Category added');
 }
 
@@ -978,6 +1295,7 @@ function updateBudget() {
   document.getElementById('sv-rent').textContent = '$' + rent.toLocaleString();
   document.getElementById('sv-dining').textContent = '$' + dining.toLocaleString();
   document.getElementById('sv-fun').textContent = '$' + fun.toLocaleString();
+  saveToFirebase();
   renderBudget();
 }
 function renderBudget() {
@@ -1051,10 +1369,12 @@ function confirmAddBudget() {
   STATE.budgetItems.push({ id: uid(), label, note, type, amount, icon: type === 'arrival' ? '📦' : '🔄' });
   closeModal('add-budget-modal');
   ['new-budget-label','new-budget-note','new-budget-amount'].forEach(id => document.getElementById(id).value = '');
+  saveToFirebase();
   renderBudget(); showToast('Budget line added');
 }
 function deleteBudgetItem(id) {
   STATE.budgetItems = STATE.budgetItems.filter(i => i.id !== id);
+  saveToFirebase();
   renderBudget(); showToast('Item removed');
 }
 
@@ -1158,8 +1478,11 @@ function confirmAddLeg() {
   } else {
     STATE.flightLegs.push(leg);
   }
-  closeModal('add-leg-modal'); editingLegId = null;
-  renderFlights(); showToast(editingLegId ? 'Leg updated' : 'Leg added');
+  closeModal('add-leg-modal');
+  const wasEditing = editingLegId;
+  editingLegId = null;
+  saveToFirebase();
+  renderFlights(); showToast(wasEditing ? 'Leg updated' : 'Leg added');
 }
 function addStay() {
   editingLegId = null;
@@ -1182,11 +1505,14 @@ function confirmAddStay() {
   } else {
     STATE.flightLegs.push(stay);
   }
-  closeModal('add-stay-modal'); editingLegId = null;
+  closeModal('add-stay-modal');
+  editingLegId = null;
+  saveToFirebase();
   renderFlights(); showToast('Stay added');
 }
 function deleteLeg(id) {
   STATE.flightLegs = STATE.flightLegs.filter(l => l.id !== id);
+  saveToFirebase();
   renderFlights(); showToast('Removed');
 }
 function openFlightSearch() {
@@ -1227,10 +1553,11 @@ function toggleCustoms(id, el) {
 }
 function editCustomsBody(id, val) {
   const sec = STATE.customsSections.find(s => s.id === id);
-  if (sec) sec.body = val.trim();
+  if (sec) { sec.body = val.trim(); saveToFirebase(); }
 }
 function deleteCustoms(id) {
   STATE.customsSections = STATE.customsSections.filter(s => s.id !== id);
+  saveToFirebase();
   renderCustoms(); showToast('Note removed');
 }
 function openAddCustomsModal() { openModal('add-customs-modal'); }
@@ -1242,6 +1569,7 @@ function confirmAddCustoms() {
   closeModal('add-customs-modal');
   document.getElementById('new-customs-q').value = '';
   document.getElementById('new-customs-body').value = '';
+  saveToFirebase();
   renderCustoms(); showToast('Note added');
 }
 
@@ -1265,20 +1593,23 @@ function loadTemplate(type) {
   if (!confirm('This will replace your current data. Continue?')) return;
   STATE = JSON.parse(JSON.stringify(type === 'blank' ? BLANK_DATA : SANDRA_DATA));
   closeModal('template-modal');
-  renderPacking(); renderBudget(); renderFlights(); renderCustoms();
+  saveToFirebase();
+  renderAll();
   showToast(type === 'blank' ? 'Blank template loaded' : "Sandra's template loaded");
 }
 
 // ============================================================
-// LOAD FROM URL
+// LOAD FROM URL (for shared links — only when not signed in)
 // ============================================================
 function loadFromUrl() {
+  if (currentUser) return; // Firebase data takes precedence when signed in
   const params = new URLSearchParams(window.location.search);
   const data = params.get('data');
   if (data) {
     try {
       STATE = JSON.parse(decodeURIComponent(escape(atob(data))));
       showToast('Planner loaded from shared link!');
+      renderAll();
     } catch(e) { console.warn('Could not load shared data'); }
   }
 }
@@ -1287,10 +1618,7 @@ function loadFromUrl() {
 // INIT
 // ============================================================
 loadFromUrl();
-renderPacking();
-renderBudget();
-renderFlights();
-renderCustoms();
+renderAll();
 </script>
 </body>
 </html>
