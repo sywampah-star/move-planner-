@@ -639,6 +639,25 @@
   .co-item:first-of-type { border-top: none; }
   .co-sec-label { font-size: 10px; color: var(--text-muted); background: var(--cream-dark); border-radius: 3px; padding: 1px 5px; flex-shrink: 0; }
 
+  /* CARRY-ON SUGGESTIONS */
+  .co-suggest-toggle {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+    font-size: 12px; color: var(--text-muted); padding: 10px 0 0;
+    border-top: 1px solid var(--border-light); margin-top: 8px;
+    user-select: none; background: none; border-bottom: none;
+    border-left: none; border-right: none; width: 100%; text-align: left;
+  }
+  .co-suggest-toggle:hover { color: var(--text-secondary); }
+  .co-suggest-toggle .chevron { transition: transform 0.2s; font-size: 10px; }
+  .co-suggest-toggle.open .chevron { transform: rotate(180deg); }
+  .co-suggest-list { margin-top: 6px; }
+  .co-suggest-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; border-top: 1px solid var(--border-light);
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .co-suggest-item:first-of-type { border-top: none; }
+
   /* LINK CARD */
   .link-card {
     display: flex; align-items: center; gap: 12px; padding: 14px 18px;
@@ -1611,11 +1630,6 @@ const SANDRA_DATA = {
     { id: 'fc9',  label: 'Bank notified of international travel', cat: 'Day of travel', checked: false },
     { id: 'fc10', label: 'US phone plan researched (Mint Mobile, T-Mobile, etc.)', cat: 'Day of travel', checked: false },
     { id: 'fc11', label: 'USD cash for arrival ($50–100)', cat: 'Day of travel', checked: false },
-    { id: 'fc12', label: 'Laptop & charger', cat: 'Carry-on essentials', checked: false },
-    { id: 'fc13', label: 'Medications in original packaging + any doctor notes', cat: 'Carry-on essentials', checked: false },
-    { id: 'fc14', label: 'One change of clothes', cat: 'Carry-on essentials', checked: false },
-    { id: 'fc15', label: 'Phone charger / power bank', cat: 'Carry-on essentials', checked: false },
-    { id: 'fc16', label: 'Snacks for the journey', cat: 'Carry-on essentials', checked: false },
   ],
   customsSections: [
     { id: 'cs1', q: 'What documents do I need at US customs?', body: 'Carry these in your hand luggage (never checked):\n• Passport with F-1 visa stamp\n• I-20 form (original — most important)\n• Cornell admission letter\n• Proof of funds (bank statement or scholarship letter)\n• Ithaca apartment address written down\n\nThe officer will verify your SEVIS record is active. Make sure your SEVIS fee was paid before you travel.' },
@@ -1650,11 +1664,6 @@ const BLANK_DATA = {
     { id: 'fc9',  label: 'Bank notified of international travel', cat: 'Day of travel', checked: false },
     { id: 'fc10', label: 'Local phone plan researched', cat: 'Day of travel', checked: false },
     { id: 'fc11', label: 'Local currency for arrival', cat: 'Day of travel', checked: false },
-    { id: 'fc12', label: 'Laptop & charger', cat: 'Carry-on essentials', checked: false },
-    { id: 'fc13', label: 'Medications in original packaging', cat: 'Carry-on essentials', checked: false },
-    { id: 'fc14', label: 'One change of clothes', cat: 'Carry-on essentials', checked: false },
-    { id: 'fc15', label: 'Phone charger / power bank', cat: 'Carry-on essentials', checked: false },
-    { id: 'fc16', label: 'Snacks for the journey', cat: 'Carry-on essentials', checked: false },
   ],
   customsSections: [],
 };
@@ -1668,6 +1677,22 @@ let budgetFilter = 'all';
 let editingLegId = null;
 let collapsedSections = new Set(JSON.parse(localStorage.getItem('mw-collapsed') || '[]'));
 let collapsedBudgetSections = new Set(JSON.parse(localStorage.getItem('mw-budget-sec') || '[]'));
+let coSuggestionsOpen = false;
+
+const CARRY_ON_SUGGESTIONS = [
+  { label: 'Passport & travel documents folder', note: 'Keep originals on you at all times' },
+  { label: 'Laptop & charger', note: '' },
+  { label: 'Medications in original packaging', note: 'Include a doctor\'s note if prescription' },
+  { label: 'One change of clothes', note: 'In case of delays or lost checked luggage' },
+  { label: 'Phone charger / power bank', note: '' },
+  { label: 'Snacks for the journey', note: 'Declare any food at US customs' },
+  { label: 'Neck pillow & eye mask', note: 'For long-haul flights' },
+  { label: 'Headphones / earbuds', note: '' },
+  { label: 'Empty water bottle', note: 'Fill after security' },
+  { label: 'Hand sanitiser & face wipes', note: '' },
+  { label: 'Small amount of local currency', note: 'For immediate needs on arrival' },
+  { label: 'Travel adapter / universal plug', note: 'US uses Type A/B plugs' },
+];
 
 function toggleSectionCollapse(secId) {
   if (collapsedSections.has(secId)) collapsedSections.delete(secId);
@@ -2410,13 +2435,18 @@ function renderFlights() {
   const coItems = STATE.packSections.flatMap(s =>
     s.items.filter(i => i.carryOn).map(i => ({ ...i, secTitle: s.title }))
   );
+  // Filter suggestions to exclude labels already in the carry-on list
+  const coLabels = new Set(coItems.map(i => i.label.toLowerCase()));
+  const suggestions = CARRY_ON_SUGGESTIONS.filter(s => !coLabels.has(s.label.toLowerCase()));
+
   const coLines = [`<div class="card" style="margin-top:16px">
     <div class="card-header" style="margin-bottom:12px">
       <div class="card-title">Carry-on summary</div>
       <span style="font-size:12px;color:var(--text-muted)">from your packing list</span>
     </div>`];
+
   if (!coItems.length) {
-    coLines.push('<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:4px 0">No items marked as carry-on yet. In your packing list, click the ✈ button on any item to add it here.</div>');
+    coLines.push('<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:4px 0">No items marked as carry-on yet. Use the suggestions below, or go to Packing and tap ✈ on any item.</div>');
   } else {
     coItems.forEach(item => {
       coLines.push(`<div class="co-item">
@@ -2426,6 +2456,27 @@ function renderFlights() {
       </div>`);
     });
   }
+
+  if (suggestions.length) {
+    coLines.push(`<button class="co-suggest-toggle ${coSuggestionsOpen ? 'open' : ''}" onclick="toggleCoSuggestions()">
+      <span class="chevron">▾</span>
+      <span>${coSuggestionsOpen ? 'Hide' : 'Show'} suggested carry-on items (${suggestions.length})</span>
+    </button>`);
+    if (coSuggestionsOpen) {
+      coLines.push('<div class="co-suggest-list">');
+      suggestions.forEach((s, i) => {
+        coLines.push(`<div class="co-suggest-item">
+          <div style="flex:1">
+            <div>${s.label}</div>
+            ${s.note ? `<div style="font-size:11px;color:var(--text-muted)">${s.note}</div>` : ''}
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="addCarryOnSuggestion(${i})" style="flex-shrink:0">+ Add</button>
+        </div>`);
+      });
+      coLines.push('</div>');
+    }
+  }
+
   coLines.push('</div>');
   html.push(coLines.join(''));
 
@@ -2581,6 +2632,27 @@ function addPfItem() {
   STATE.flightChecklist.push({ id: uid(), label, cat, checked: false });
   saveToFirebase();
   renderFlights();
+}
+function toggleCoSuggestions() {
+  coSuggestionsOpen = !coSuggestionsOpen;
+  renderFlights();
+}
+function addCarryOnSuggestion(idx) {
+  const coLabels = new Set(
+    STATE.packSections.flatMap(s => s.items.filter(i => i.carryOn).map(i => i.label.toLowerCase()))
+  );
+  const visible = CARRY_ON_SUGGESTIONS.filter(s => !coLabels.has(s.label.toLowerCase()));
+  const s = visible[idx];
+  if (!s) return;
+  // Add to first packing section (or create one if empty)
+  if (!STATE.packSections.length) {
+    STATE.packSections.push({ id: uid(), title: 'General', urgent: false, items: [] });
+  }
+  STATE.packSections[0].items.push({ id: uid(), label: s.label, note: s.note, tag: 'bring', checked: false, carryOn: true });
+  saveToFirebase();
+  showToast(`"${s.label}" added to ${STATE.packSections[0].title} ✈`);
+  renderFlights();
+  renderPacking();
 }
 // ============================================================
 // CUSTOMS
