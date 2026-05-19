@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Move Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FAF6F0;
+    --cream-dark: #F0E8DC;
+    --terracotta: #C1603A;
+    --terracotta-light: #E8896A;
+    --terracotta-pale: #F5DDD4;
+    --amber: #D4863A;
+    --amber-light: #F2C97A;
+    --amber-pale: #FDF0D5;
+    --brown: #5C3D2E;
+    --brown-light: #8B6355;
+    --brown-pale: #EAD9D0;
+    --sage: #7A8C6E;
+    --sage-pale: #E8EDE4;
+    --text-primary: #2D1F17;
+    --text-secondary: #7A5C4A;
+    --text-muted: #A68B78;
+    --border: #E0CEBC;
+    --border-light: #EDE0D0;
+    --white: #FFFFFF;
+    --success: #5A8A5A;
+    --success-pale: #E8F0E8;
+    --danger: #C1603A;
+    --danger-pale: #F5DDD4;
+    --shadow: 0 2px 12px rgba(92,61,46,0.08);
+    --shadow-lg: 0 8px 32px rgba(92,61,46,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text-primary);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* HEADER */
+  .app-header {
+    background: var(--brown);
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+  .header-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+  }
+  .app-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    color: var(--cream);
+    letter-spacing: 0.02em;
+  }
+  .app-logo span { color: var(--amber-light); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .btn-header {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(250,246,240,0.3);
+    background: transparent;
+    color: var(--cream);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .btn-header:hover { background: rgba(250,246,240,0.1); border-color: rgba(250,246,240,0.5); }
+  .btn-header.primary { background: var(--terracotta); border-color: var(--terracotta); }
+  .btn-header.primary:hover { background: var(--terracotta-light); }
+
+  /* TABS */
+  .tabs-bar {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 56px;
+    z-index: 99;
+  }
+  .tabs-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    padding: 0 24px;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs-inner::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 14px 20px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .tab-btn:hover { color: var(--terracotta); }
+  .tab-btn.active { color: var(--terracotta); border-bottom-color: var(--terracotta); }
+  .tab-icon { font-size: 15px; }
+
+  /* MAIN */
+  .main { max-width: 960px; margin: 0 auto; padding: 24px; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* CARDS */
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+  }
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px; font-weight: 500;
+    color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-header {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-muted);
+    margin: 20px 0 10px;
+  }
+
+  /* BADGES */
+  .badge {
+    font-size: 10px; font-weight: 500;
+    padding: 3px 9px; border-radius: 20px;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .badge-terra { background: var(--terracotta-pale); color: var(--terracotta); }
+  .badge-amber { background: var(--amber-pale); color: var(--amber); }
+  .badge-sage { background: var(--sage-pale); color: var(--sage); }
+  .badge-brown { background: var(--brown-pale); color: var(--brown); }
+  .badge-urgent { background: var(--terracotta-pale); color: var(--terracotta); }
+
+  /* BUTTONS */
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px; font-weight: 500;
+    padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--white);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .btn:hover { background: var(--cream-dark); border-color: var(--border); }
+  .btn-primary {
+    background: var(--terracotta); color: var(--white);
+    border-color: var(--terracotta);
+  }
+  .btn-primary:hover { background: var(--terracotta-light); border-color: var(--terracotta-light); }
+  .btn-danger { color: var(--terracotta); border-color: var(--terracotta-pale); background: var(--terracotta-pale); }
+  .btn-danger:hover { background: var(--terracotta); color: var(--white); }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+  .btn-icon { padding: 5px 8px; }
+
+  /* PACKING ITEMS */
+  .pack-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0; border-top: 1px solid var(--border-light);
+    transition: background 0.1s;
+  }
+  .pack-item:first-of-type { border-top: none; }
+  .pack-item:hover { background: var(--cream); margin: 0 -20px; padding-left: 20px; padding-right: 20px; border-radius: 6px; }
+  .pack-check {
+    width: 17px; height: 17px; border: 1.5px solid var(--border);
+    border-radius: 4px; flex-shrink: 0; margin-top: 2px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s; background: var(--white);
+  }
+  .pack-check.checked { background: var(--success); border-color: var(--success); }
+  .pack-check.checked::after {
+    content: '✓'; color: white; font-size: 10px; font-weight: 700;
+  }
+  .pack-label { flex: 1; font-size: 13px; color: var(--text-primary); cursor: pointer; }
+  .pack-label.done { color: var(--text-muted); text-decoration: line-through; }
+  .pack-note { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .pack-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+  .pack-item:hover .pack-actions { opacity: 1; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { height: 3px; background: var(--border-light); border-radius: 2px; margin-bottom: 14px; }
+  .progress-fill { height: 100%; background: var(--terracotta); border-radius: 2px; transition: width 0.4s; }
+
+  /* FILTER ROW */
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .filter-pill {
+    font-size: 12px; padding: 5px 14px; border-radius: 20px;
+    border: 1px solid var(--border); background: var(--white);
+    color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+  }
+  .filter-pill.active {
+    background: var(--terracotta); color: var(--white); border-color: var(--terracotta);
+  }
+  .filter-pill:hover:not(.active) { border-color: var(--terracotta); color: var(--terracotta); }
+
+  /* STATS ROW */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--cream-dark); border-radius: 10px;
+    padding: 14px 16px; text-align: center;
+  }
+  .stat-num { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--terracotta); }
+  .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ADD ITEM FORM */
+  .add-form {
+    background: var(--cream); border: 1px dashed var(--border);
+    border-radius: 10px; padding: 14px 16px; margin-top: 10px;
+    display: none;
+  }
+  .add-form.open { display: block; }
+  .form-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .form-input {
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    padding: 7px 12px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--white);
+    color: var(--text-primary); outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--terracotta); }
+  .form-input.flex-1 { flex: 1; min-width: 120px; }
+  .form-select {
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    padding: 7px 12px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--white);
+    color: var(--text-primary); outline: none; cursor: pointer;
+  }
+
+  /* BUDGET */
+  .budget-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-top: 1px solid var(--border-light);
+  }
+  .budget-row:first-of-type { border-top: none; }
+  .budget-icon { font-size: 15px; color: var(--text-muted); width: 20px; flex-shrink: 0; }
+  .budget-info { flex: 1; min-width: 0; }
+  .budget-label { font-size: 13px; color: var(--text-primary); }
+  .budget-note { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .budget-bar-wrap { width: 80px; height: 3px; background: var(--border-light); border-radius: 2px; }
+  .budget-bar-fill { height: 100%; border-radius: 2px; }
+  .budget-amount { font-size: 13px; font-weight: 500; color: var(--text-primary); min-width: 64px; text-align: right; }
+  .budget-row:hover .pack-actions { opacity: 1; }
+  .budget-row:hover { background: var(--cream); margin: 0 -20px; padding-left: 20px; padding-right: 20px; border-radius: 6px; }
+
+  /* SLIDER */
+  .slider-wrap { margin-bottom: 10px; }
+  .slider-label-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .slider-label { font-size: 12px; color: var(--text-secondary); }
+  .slider-val { font-size: 12px; font-weight: 500; color: var(--terracotta); }
+  input[type=range] {
+    width: 100%; height: 4px; -webkit-appearance: none;
+    background: var(--border); border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--terracotta);
+    cursor: pointer; border: 2px solid var(--white);
+    box-shadow: 0 1px 4px rgba(193,96,58,0.3);
+  }
+
+  /* BUDGET TOTALS */
+  .total-card {
+    background: var(--brown); color: var(--cream);
+    border-radius: 10px; padding: 16px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 16px;
+  }
+  .total-card .label { font-size: 12px; color: var(--cream-dark); }
+  .total-card .amount { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--amber-light); }
+
+  /* FLIGHT LEGS */
+  .flight-leg {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 0; border-top: 1px solid var(--border-light);
+  }
+  .flight-leg:first-of-type { border-top: none; padding-top: 0; }
+  .leg-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--terracotta); flex-shrink: 0; margin-top: 4px;
+    border: 2px solid var(--terracotta-pale);
+  }
+  .leg-line-wrap { display: flex; flex-direction: column; align-items: center; }
+  .leg-connector { width: 1px; height: 20px; background: var(--border); margin: 2px 4.5px; }
+  .leg-info { flex: 1; }
+  .leg-airports { font-family: 'Playfair Display', serif; font-size: 16px; color: var(--text-primary); margin-bottom: 3px; }
+  .leg-detail { font-size: 12px; color: var(--text-secondary); }
+  .leg-date { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .leg-actions { display: flex; gap: 4px; }
+  .stay-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; background: var(--amber-pale);
+    border-radius: 8px; margin: 4px 0;
+    font-size: 12px; color: var(--amber);
+  }
+
+  /* CUSTOMS */
+  .customs-section { margin-bottom: 20px; }
+  .customs-q {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px; font-weight: 500; color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer; padding: 12px 0;
+    border-top: 1px solid var(--border-light);
+    user-select: none;
+  }
+  .customs-q:first-of-type { border-top: none; padding-top: 0; }
+  .customs-q .chevron { margin-left: auto; font-size: 12px; color: var(--text-muted); transition: transform 0.2s; }
+  .customs-q.open .chevron { transform: rotate(180deg); }
+  .customs-body {
+    font-size: 13px; color: var(--text-secondary);
+    line-height: 1.7; padding: 0 0 12px 24px;
+    display: none;
+  }
+  .customs-body.open { display: block; }
+  .customs-body ul { padding-left: 16px; margin-top: 6px; }
+  .customs-body li { margin-bottom: 4px; }
+  .customs-tip {
+    background: var(--amber-pale); border-radius: 8px;
+    padding: 10px 14px; font-size: 12px; color: var(--amber);
+    display: flex; gap: 8px; margin-top: 8px;
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(45,31,23,0.5);
+    z-index: 200; display: flex; align-items: center; justify-content: center;
+    padding: 20px; display: none;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--white); border-radius: 16px;
+    padding: 24px; width: 100%; max-width: 480px;
+    box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px; margin-bottom: 16px; color: var(--text-primary);
+  }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--brown); color: var(--cream);
+    padding: 10px 18px; border-radius: 8px;
+    font-size: 13px; z-index: 300;
+    transform: translateY(60px); opacity: 0;
+    transition: all 0.3s; pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    .main { padding: 16px; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .header-inner { height: 50px; }
+    .tab-btn { padding: 12px 14px; font-size: 12px; }
+    .app-logo { font-size: 15px; }
+  }
+
+  /* EDIT INLINE */
+  .editable-field {
+    border: none; background: transparent; font-family: inherit;
+    font-size: inherit; color: inherit; width: 100%;
+    outline: none; cursor: text;
+  }
+  .editable-field:focus {
+    background: var(--cream); border-radius: 4px;
+    padding: 2px 6px; margin: -2px -6px;
+  }
+
+  /* DIVIDER */
+  .divider { height: 1px; background: var(--border-light); margin: 16px 0; }
+
+  /* LINK */
+  a.ext-link { color: var(--terracotta); text-decoration: none; font-weight: 500; }
+  a.ext-link:hover { text-decoration: underline; }
+
+  /* EMPTY STATE */
+  .empty-state { text-align: center; padding: 32px 20px; color: var(--text-muted); }
+  .empty-state .icon { font-size: 32px; margin-bottom: 8px; }
+  .empty-state p { font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-inner">
+    <div class="app-logo">move<span>wise</span></div>
+    <div class="header-actions">
+      <button class="btn-header" onclick="openShareModal()">⬆ Share</button>
+      <button class="btn-header" onclick="openTemplateModal()">✦ New from template</button>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs-bar">
+  <div class="tabs-inner">
+    <button class="tab-btn active" onclick="showTab('packing', this)"><span class="tab-icon">🧳</span> Packing</button>
+    <button class="tab-btn" onclick="showTab('budget', this)"><span class="tab-icon">💰</span> Budget</button>
+    <button class="tab-btn" onclick="showTab('flights', this)"><span class="tab-icon">✈️</span> Flights</button>
+    <button class="tab-btn" onclick="showTab('customs', this)"><span class="tab-icon">🛂</span> Customs</button>
+  </div>
+</nav>
+
+<main class="main">
+
+  <!-- ===== PACKING TAB ===== -->
+  <div id="tab-packing" class="tab-content active">
+    <div class="stats-row" id="pack-stats"></div>
+    <div class="filter-row" id="pack-filters">
+      <button class="filter-pill active" onclick="setPackFilter('all',this)">All</button>
+      <button class="filter-pill" onclick="setPackFilter('bring',this)">Bring from home</button>
+      <button class="filter-pill" onclick="setPackFilter('buy',this)">Buy at destination</button>
+      <button class="filter-pill" onclick="setPackFilter('unpacked',this)">Unpacked only</button>
+    </div>
+    <div id="pack-sections"></div>
+    <button class="btn btn-primary" onclick="openAddSectionModal()" style="margin-top:8px">+ Add new category</button>
+  </div>
+
+  <!-- ===== BUDGET TAB ===== -->
+  <div id="tab-budget" class="tab-content">
+    <div class="stats-row" id="budget-stats"></div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><div class="card-title">Adjust your estimates</div></div>
+      <div class="slider-wrap">
+        <div class="slider-label-row">
+          <span class="slider-label">Monthly rent</span>
+          <span class="slider-val" id="sv-rent">$1,100</span>
+        </div>
+        <input type="range" min="500" max="2500" step="50" id="sl-rent" value="1100" oninput="updateBudget()">
+      </div>
+      <div class="slider-wrap">
+        <div class="slider-label-row">
+          <span class="slider-label">Eating out / month</span>
+          <span class="slider-val" id="sv-dining">$150</span>
+        </div>
+        <input type="range" min="0" max="500" step="25" id="sl-dining" value="150" oninput="updateBudget()">
+      </div>
+      <div class="slider-wrap">
+        <div class="slider-label-row">
+          <span class="slider-label">Entertainment / month</span>
+          <span class="slider-val" id="sv-fun">$100</span>
+        </div>
+        <input type="range" min="0" max="400" step="25" id="sl-fun" value="100" oninput="updateBudget()">
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <button class="filter-pill active" onclick="setBudgetFilter('all',this)">All</button>
+      <button class="filter-pill" onclick="setBudgetFilter('arrival',this)">Arrival month</button>
+      <button class="filter-pill" onclick="setBudgetFilter('monthly',this)">Monthly ongoing</button>
+    </div>
+
+    <div id="budget-sections"></div>
+
+    <button class="btn btn-primary" onclick="openAddBudgetModal()" style="margin-top:8px">+ Add budget line</button>
+  </div>
+
+  <!-- ===== FLIGHTS TAB ===== -->
+  <div id="tab-flights" class="tab-content">
+    <div id="flight-legs-wrap"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button class="btn btn-primary" onclick="addFlightLeg()">+ Add leg</button>
+      <button class="btn" onclick="addStay()">+ Add stay / stopover</button>
+      <button class="btn" onclick="openFlightSearch()">🔍 Search live prices</button>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-title" style="margin-bottom:10px;font-size:13px">Quick flight search links</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="flight-links"></div>
+    </div>
+  </div>
+
+  <!-- ===== CUSTOMS TAB ===== -->
+  <div id="tab-customs" class="tab-content">
+    <div id="customs-sections"></div>
+    <button class="btn btn-primary" onclick="openAddCustomsModal()" style="margin-top:8px">+ Add note</button>
+  </div>
+
+</main>
+
+<!-- SHARE MODAL -->
+<div class="modal-overlay" id="share-modal">
+  <div class="modal">
+    <div class="modal-title">Share this planner</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Anyone with this link can open a copy of your planner. They get your pre-loaded data as a starting template and can customise it for their own move.</p>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input class="form-input flex-1" id="share-url" readonly value="">
+      <button class="btn btn-primary" onclick="copyShareUrl()">Copy</button>
+    </div>
+    <p style="font-size:11px;color:var(--text-muted)">Share this URL with friends or fellow students planning a similar move.</p>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('share-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEMPLATE MODAL -->
+<div class="modal-overlay" id="template-modal">
+  <div class="modal">
+    <div class="modal-title">Start from a template</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Choose how you'd like to start:</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn" style="justify-content:flex-start;padding:14px 16px;text-align:left;height:auto;flex-direction:column;align-items:flex-start" onclick="loadTemplate('sandra')">
+        <span style="font-weight:500;color:var(--text-primary)">Sandra's template (pre-loaded)</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-top:2px">Full packing list, Ithaca budget, Accra → NYC → Ithaca route</span>
+      </button>
+      <button class="btn" style="justify-content:flex-start;padding:14px 16px;text-align:left;height:auto;flex-direction:column;align-items:flex-start" onclick="loadTemplate('blank')">
+        <span style="font-weight:500;color:var(--text-primary)">Blank template</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-top:2px">Start fresh with empty sections</span>
+      </button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('template-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD SECTION MODAL -->
+<div class="modal-overlay" id="add-section-modal">
+  <div class="modal">
+    <div class="modal-title">Add packing category</div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="new-section-name" placeholder="Category name (e.g. Electronics)">
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-section-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddSection()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD BUDGET MODAL -->
+<div class="modal-overlay" id="add-budget-modal">
+  <div class="modal">
+    <div class="modal-title">Add budget line</div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="new-budget-label" placeholder="Item name">
+    </div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="new-budget-note" placeholder="Note (optional)">
+    </div>
+    <div class="form-row">
+      <input class="form-input" id="new-budget-amount" placeholder="Amount ($)" type="number" style="width:120px">
+      <select class="form-select" id="new-budget-type">
+        <option value="arrival">Arrival month</option>
+        <option value="monthly">Monthly ongoing</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-budget-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddBudget()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD CUSTOMS MODAL -->
+<div class="modal-overlay" id="add-customs-modal">
+  <div class="modal">
+    <div class="modal-title">Add customs note</div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="new-customs-q" placeholder="Question or topic">
+    </div>
+    <div class="form-row">
+      <textarea class="form-input flex-1" id="new-customs-body" placeholder="Your note or answer..." rows="4" style="resize:vertical"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-customs-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddCustoms()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD FLIGHT LEG MODAL -->
+<div class="modal-overlay" id="add-leg-modal">
+  <div class="modal">
+    <div class="modal-title" id="leg-modal-title">Add flight leg</div>
+    <div class="form-row">
+      <input class="form-input" id="leg-from" placeholder="From (e.g. ACC)" style="width:100px">
+      <input class="form-input" id="leg-to" placeholder="To (e.g. JFK)" style="width:100px">
+    </div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="leg-airline" placeholder="Airline & flight no. (optional)">
+    </div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="leg-date" placeholder="Date (e.g. 15 July 2026)" type="text">
+    </div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="leg-note" placeholder="Notes (e.g. nonstop, 11h 15m)">
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-leg-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddLeg()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD STAY MODAL -->
+<div class="modal-overlay" id="add-stay-modal">
+  <div class="modal">
+    <div class="modal-title">Add stay / stopover</div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="stay-city" placeholder="City (e.g. New York, NY)">
+    </div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="stay-duration" placeholder="Duration (e.g. 1 week)">
+    </div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="stay-note" placeholder="Notes (optional)">
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-stay-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddStay()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const SANDRA_DATA = {
+  packSections: [
+    { id: 'docs', title: 'Documents & IDs', urgent: true, items: [
+      { id: 'd1', label: 'Passport (valid 6+ months)', note: 'Original + 2 photocopies', tag: 'bring', checked: false },
+      { id: 'd2', label: 'F-1 student visa', note: 'Stamped in your passport', tag: 'bring', checked: false },
+      { id: 'd3', label: 'I-20 form from Cornell', note: 'Original required at US customs', tag: 'bring', checked: false },
+      { id: 'd4', label: 'SEVIS fee payment receipt', note: 'Print and carry a copy', tag: 'bring', checked: false },
+      { id: 'd5', label: 'Cornell admission letter', note: 'Official letter, not email', tag: 'bring', checked: false },
+      { id: 'd6', label: 'Proof of financial support', note: 'Bank statements or scholarship letter', tag: 'bring', checked: false },
+      { id: 'd7', label: 'Apartment lease agreement', note: 'Printed + saved offline on phone', tag: 'bring', checked: false },
+      { id: 'd8', label: 'Undergraduate transcripts', note: 'Official sealed copies', tag: 'bring', checked: false },
+      { id: 'd9', label: 'Immunisation records', note: 'Cornell requires MMR, meningitis proof', tag: 'bring', checked: false },
+      { id: 'd10', label: 'Travel insurance documents', note: 'Policy details + emergency contacts', tag: 'bring', checked: false },
+      { id: 'd11', label: 'International driving licence', note: 'Optional but useful', tag: 'bring', checked: false },
+    ]},
+    { id: 'clothes', title: 'Clothing', urgent: false, items: [
+      { id: 'c1', label: '7–10 everyday casual outfits', note: 'T-shirts, trousers, shorts — July is warm', tag: 'bring', checked: false },
+      { id: 'c2', label: '3–4 smart-casual outfits', note: 'For orientation, networking, presentations', tag: 'bring', checked: false },
+      { id: 'c3', label: '1 formal outfit', note: 'Suit or dress for career fairs and interviews', tag: 'bring', checked: false },
+      { id: 'c4', label: 'Comfortable walking shoes', note: "You'll walk a lot on campus", tag: 'bring', checked: false },
+      { id: 'c5', label: 'Smart shoes', note: '1 pair for professional events', tag: 'bring', checked: false },
+      { id: 'c6', label: 'Pyjamas / loungewear', note: '2–3 sets', tag: 'bring', checked: false },
+      { id: 'c7', label: 'Underwear & socks (10+ days)', note: 'Stock up before you go', tag: 'bring', checked: false },
+      { id: 'c8', label: 'Light jacket / hoodie', note: 'Evenings can cool down even in July', tag: 'bring', checked: false },
+      { id: 'c9', label: 'Gym kit (2–3 sets)', note: 'For your workout routine', tag: 'bring', checked: false },
+      { id: 'c10', label: 'Running / workout shoes', note: 'Cornell has excellent gym facilities', tag: 'bring', checked: false },
+      { id: 'c11', label: 'Heavy winter coat', note: 'Buy in Ithaca — not worth the bag space', tag: 'buy', checked: false },
+      { id: 'c12', label: 'Winter boots (waterproof)', note: 'Essential for Ithaca snow — buy on arrival', tag: 'buy', checked: false },
+      { id: 'c13', label: 'Thermal underlayers', note: 'Buy before first cold snap', tag: 'buy', checked: false },
+      { id: 'c14', label: 'Gloves, scarf, beanie', note: 'Buy once you arrive', tag: 'buy', checked: false },
+      { id: 'c15', label: 'Rain jacket / umbrella', note: 'Ithaca is very rainy year-round', tag: 'buy', checked: false },
+    ]},
+    { id: 'tech', title: 'Tech & electronics', urgent: false, items: [
+      { id: 't1', label: 'Laptop + charger', note: 'Essential — bring from home', tag: 'bring', checked: false },
+      { id: 't2', label: 'Phone + charger', note: 'Bring your current phone', tag: 'bring', checked: false },
+      { id: 't3', label: 'Universal power adapter (Type A/B)', note: 'US plugs are flat 2-pin', tag: 'bring', checked: false },
+      { id: 't4', label: 'Voltage converter (if needed)', note: 'Only if your device is 240V-only', tag: 'bring', checked: false },
+      { id: 't5', label: 'Portable power bank', note: 'Useful for long orientation days', tag: 'bring', checked: false },
+      { id: 't6', label: 'Headphones / earbuds', note: 'For flights, studying, commuting', tag: 'bring', checked: false },
+      { id: 't7', label: 'USB-C / multi-port hub', note: 'US classrooms often have limited ports', tag: 'bring', checked: false },
+      { id: 't8', label: 'External hard drive or USB stick', note: 'For assignment backups', tag: 'bring', checked: false },
+      { id: 't9', label: 'US SIM card / prepaid plan', note: 'T-Mobile or AT&T — buy at airport on arrival', tag: 'buy', checked: false },
+      { id: 't10', label: 'Extension cord / power strip', note: 'US apartments often have limited outlets', tag: 'buy', checked: false },
+    ]},
+    { id: 'toiletries', title: 'Toiletries & skincare', urgent: false, items: [
+      { id: 'sk1', label: 'Skincare routine products', note: 'Cetaphil, SKIN 1004 ampoule & sun serum, Anua toner, SoonJung cream', tag: 'bring', checked: false },
+      { id: 'sk2', label: 'Shampoo & conditioner', note: 'Small travel sizes; restock locally', tag: 'bring', checked: false },
+      { id: 'sk3', label: 'Body wash / soap', note: '1–2 bottles to start', tag: 'bring', checked: false },
+      { id: 'sk4', label: 'Deodorant', note: 'Your preferred brand', tag: 'bring', checked: false },
+      { id: 'sk5', label: 'Toothbrush, toothpaste, floss', note: 'Travel sizes fine', tag: 'bring', checked: false },
+      { id: 'sk6', label: 'Feminine hygiene products', note: '1–2 months supply', tag: 'bring', checked: false },
+      { id: 'sk7', label: 'Razors / hair removal products', note: 'Your preferred type', tag: 'bring', checked: false },
+      { id: 'sk8', label: 'Haircare products for your texture', note: 'Harder to find in Ithaca — stock up', tag: 'bring', checked: false },
+      { id: 'sk9', label: 'Wide-tooth comb / brush', note: 'For your hair texture', tag: 'bring', checked: false },
+      { id: 'sk10', label: 'Estée Lauder Double Wear (5N2)', note: 'Your shade — hard to match quickly in-store', tag: 'bring', checked: false },
+      { id: 'sk11', label: 'Basic makeup / cosmetics', note: 'Restock on Amazon US once settled', tag: 'bring', checked: false },
+      { id: 'sk12', label: 'Nail care kit', note: 'Compact set', tag: 'bring', checked: false },
+    ]},
+    { id: 'health', title: 'Health & medication', urgent: false, items: [
+      { id: 'h1', label: 'Prescription medications (3-month supply)', note: "Bring doctor's letter and original prescription", tag: 'bring', checked: false },
+      { id: 'h2', label: 'Paracetamol / ibuprofen', note: 'Basic pain relief for first days', tag: 'bring', checked: false },
+      { id: 'h3', label: 'Antihistamines', note: 'Seasonal allergies are common in Ithaca', tag: 'bring', checked: false },
+      { id: 'h4', label: 'Antidiarrheal & stomach remedies', note: 'Your gut may react to new food/water initially', tag: 'bring', checked: false },
+      { id: 'h5', label: 'Vitamin supplements', note: 'Whatever you currently take', tag: 'bring', checked: false },
+      { id: 'h6', label: 'Hand sanitiser & face masks', note: 'Small pack for travel', tag: 'bring', checked: false },
+      { id: 'h7', label: 'Cornell Health insurance enrolment', note: 'Complete online before/on arrival — mandatory', tag: 'buy', checked: false },
+    ]},
+    { id: 'finance', title: 'Money & finance', urgent: false, items: [
+      { id: 'f1', label: 'USD cash ($300–$500)', note: 'For airport, taxi, groceries before banking is sorted', tag: 'bring', checked: false },
+      { id: 'f2', label: 'Wise or Revolut card (loaded)', note: 'Low-fee international card for first weeks', tag: 'bring', checked: false },
+      { id: 'f3', label: 'Home bank debit/credit card', note: 'Confirm it works internationally before leaving', tag: 'bring', checked: false },
+      { id: 'f4', label: 'US bank account (Chase or Bank of America)', note: 'Open in first week using I-20 + passport', tag: 'buy', checked: false },
+      { id: 'f5', label: 'Cornell student ID card', note: 'Collected at orientation — gives free TCAT bus access', tag: 'buy', checked: false },
+    ]},
+    { id: 'apartment', title: 'Apartment essentials', urgent: false, items: [
+      { id: 'a1', label: 'Small personal comfort items', note: 'Photos, a favourite mug, something from home', tag: 'bring', checked: false },
+      { id: 'a2', label: 'Bedding set (sheets, pillowcase, duvet)', note: 'Walmart or Target on arrival', tag: 'buy', checked: false },
+      { id: 'a3', label: 'Pillow', note: 'Buy locally — too bulky to pack', tag: 'buy', checked: false },
+      { id: 'a4', label: 'Towels (2–3)', note: 'Buy at Target or Walmart', tag: 'buy', checked: false },
+      { id: 'a5', label: 'Kitchen basics (plates, cutlery, pot, pan)', note: 'Check Facebook Marketplace for cheap second-hand sets', tag: 'buy', checked: false },
+      { id: 'a6', label: 'Cleaning supplies', note: 'Mop, broom, surface spray', tag: 'buy', checked: false },
+      { id: 'a7', label: 'Laundry detergent', note: 'Most off-campus apartments have shared laundry', tag: 'buy', checked: false },
+      { id: 'a8', label: 'Hangers (pack of 20+)', note: 'Buy at Walmart', tag: 'buy', checked: false },
+      { id: 'a9', label: 'Desk lamp', note: 'For late-night studying', tag: 'buy', checked: false },
+      { id: 'a10', label: 'Extension cord / power strip', note: 'US apartments often have limited outlets', tag: 'buy', checked: false },
+    ]},
+    { id: 'school', title: 'School & work supplies', urgent: false, items: [
+      { id: 's1', label: 'Notebooks (2–3)', note: 'For lectures and case study notes', tag: 'bring', checked: false },
+      { id: 's2', label: 'Pens, highlighters, sticky notes', note: 'Small set — restock locally', tag: 'bring', checked: false },
+      { id: 's3', label: 'Backpack / laptop bag', note: 'One that fits your laptop + a binder', tag: 'bring', checked: false },
+      { id: 's4', label: 'Professional portfolio / padfolio', note: 'For networking events and career fairs', tag: 'bring', checked: false },
+      { id: 's5', label: 'Business cards', note: 'Print locally or via Vistaprint once in Ithaca', tag: 'buy', checked: false },
+    ]},
+    { id: 'misc', title: 'Miscellaneous', urgent: false, items: [
+      { id: 'm1', label: 'Small padlock', note: 'For luggage or shared spaces', tag: 'bring', checked: false },
+      { id: 'm2', label: 'Reusable water bottle', note: 'US tap water is safe to drink', tag: 'bring', checked: false },
+      { id: 'm3', label: 'Compact umbrella', note: 'Or buy a bigger one on arrival', tag: 'bring', checked: false },
+      { id: 'm4', label: 'Snacks from home', note: 'A few comfort foods for the first week', tag: 'bring', checked: false },
+      { id: 'm5', label: 'Small sewing kit', note: 'For clothing emergencies', tag: 'bring', checked: false },
+      { id: 'm6', label: 'TSA-approved luggage locks', note: 'Required for US-bound checked bags', tag: 'bring', checked: false },
+      { id: 'm7', label: 'Luggage tags', note: 'Label all bags with your Ithaca address', tag: 'bring', checked: false },
+    ]},
+  ],
+  budgetItems: [
+    { id: 'b1', label: 'Apartment setup (kitchen, bedding, hangers)', note: 'Walmart + Facebook Marketplace', type: 'arrival', amount: 400, icon: '🏠' },
+    { id: 'b2', label: 'Winter clothing', note: 'Coat, boots, thermals', type: 'arrival', amount: 300, icon: '🧥' },
+    { id: 'b3', label: 'Books & course materials', note: 'Some PDFs free; physical casebooks vary', type: 'arrival', amount: 200, icon: '📚' },
+    { id: 'b4', label: 'Toiletries & personal care restock', note: 'Skincare, haircare, pharmacy basics', type: 'arrival', amount: 150, icon: '🧴' },
+    { id: 'b5', label: 'Admin fees (SSN, printing, misc)', note: 'SSN is free; misc ~$20', type: 'arrival', amount: 20, icon: '📋' },
+    { id: 'b6', label: 'Emergency buffer', note: 'Strongly recommended — things always come up', type: 'arrival', amount: 500, icon: '🛡' },
+    { id: 'b7', label: 'Utilities (electricity + internet)', note: 'NYSEG + Spectrum/Verizon; may be included in rent', type: 'monthly', amount: 120, icon: '💡' },
+    { id: 'b8', label: 'Groceries', note: 'Wegmans is best value; budget cooking helps', type: 'monthly', amount: 300, icon: '🛒' },
+    { id: 'b9', label: 'Health insurance (Cornell plan)', note: '~$300–$400/month; waivable with equivalent US coverage', type: 'monthly', amount: 350, icon: '🏥' },
+    { id: 'b10', label: 'Phone plan', note: 'T-Mobile or Mint Mobile prepaid', type: 'monthly', amount: 40, icon: '📱' },
+    { id: 'b11', label: 'Transport', note: 'TCAT buses free with Cornell ID; occasional Uber/Lyft', type: 'monthly', amount: 30, icon: '🚌' },
+  ],
+  flightLegs: [
+    { id: 'fl1', type: 'flight', from: 'ACC', to: 'JFK', airline: 'Delta DL157', date: 'July 2026', note: 'Nonstop · ~11h 15m · Departs ~09:30' },
+    { id: 'st1', type: 'stay', city: 'New York / New Jersey', duration: 'A few days', note: 'Settle in, explore, sort US admin before heading to Ithaca' },
+    { id: 'fl2', type: 'flight', from: 'JFK', to: 'ITH', airline: 'Delta', date: 'July 2026', note: 'Regional jet · ~1h 20m · Multiple daily departures' },
+  ],
+  customsSections: [
+    { id: 'cs1', q: 'What documents do I need at US customs?', body: 'Carry these in your hand luggage (never checked):\n• Passport with F-1 visa stamp\n• I-20 form (original — most important)\n• Cornell admission letter\n• Proof of funds (bank statement or scholarship letter)\n• Ithaca apartment address written down\n\nThe officer will verify your SEVIS record is active. Make sure your SEVIS fee was paid before you travel.' },
+    { id: 'cs2', q: 'What will the customs officer ask me?', body: '"What is the purpose of your visit?" → "I\'m here to study. I\'m starting my MBA at Cornell University."\n"How long will you be staying?" → "For the duration of my program, about two years."\n"Where will you be living?" → Give your Ithaca apartment address.\n"Do you have sufficient funds?" → Yes — mention your funding source briefly.\n\nStay calm, answer directly, do not over-explain.' },
+    { id: 'cs3', q: 'What do I declare on the customs form?', body: 'You\'ll fill out CBP Declaration Form 6059B on the plane or at a kiosk on arrival.\n\n• Declare any cash or monetary instruments over $10,000 (not taxed, just declared)\n• Declare ALL food items — even sealed commercial snacks. Undeclared food is a fine.\n• You cannot bring fresh fruits, vegetables, meat, or plant products into the US\n• Medications must be in original packaging with a doctor\'s letter\n• Personal effects are not taxed' },
+    { id: 'cs4', q: 'Where do I clear customs — JFK or Ithaca?', body: 'You clear customs at your FIRST US airport. If you connect through JFK or IAD, that is where you go through immigration and customs — not in Ithaca. Ithaca is a domestic leg so no customs there.\n\nFactor in 45–90 minutes for the non-citizen immigration line. It can be long at JFK especially in summer.' },
+    { id: 'cs5', q: 'Common mistakes to avoid', body: '• Do not joke with customs officers\n• Do not say you are "visiting" — say "studying on an F-1 visa"\n• Do not carry someone else\'s luggage through customs\n• Do not have loose, undeclared food in your bag (even biscuits)\n• Do not have your documents buried in your checked bag — carry them on you' },
+    { id: 'cs6', q: 'What happens after the customs officer?', body: 'After the immigration officer stamps your passport, you collect your checked bags and pass through a CBP baggage inspection area. Most people walk through the "nothing to declare" lane without any issue.\n\nIf you declared food items, you may be briefly directed to an agricultural inspection — it is quick and routine. Once through, you are in the arrivals hall. Get your US SIM card as soon as possible.' },
+  ]
+};
+
+const BLANK_DATA = {
+  packSections: [
+    { id: 'docs', title: 'Documents & IDs', urgent: true, items: [] },
+    { id: 'clothes', title: 'Clothing', urgent: false, items: [] },
+    { id: 'misc', title: 'Miscellaneous', urgent: false, items: [] },
+  ],
+  budgetItems: [],
+  flightLegs: [],
+  customsSections: [],
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let STATE = JSON.parse(JSON.stringify(SANDRA_DATA));
+let packFilter = 'all';
+let budgetFilter = 'all';
+let editingLegId = null;
+
+// ============================================================
+// UTILS
+// ============================================================
+function uid() { return Math.random().toString(36).slice(2,8); }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'packing') renderPacking();
+  if (name === 'budget') renderBudget();
+  if (name === 'flights') renderFlights();
+  if (name === 'customs') renderCustoms();
+}
+
+// ============================================================
+// PACKING
+// ============================================================
+function renderPacking() {
+  const totalItems = STATE.packSections.reduce((a,s) => a + s.items.length, 0);
+  const checkedItems = STATE.packSections.reduce((a,s) => a + s.items.filter(i=>i.checked).length, 0);
+  const bringItems = STATE.packSections.reduce((a,s) => a + s.items.filter(i=>i.tag==='bring').length, 0);
+  document.getElementById('pack-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${totalItems}</div><div class="stat-label">Total items</div></div>
+    <div class="stat-card"><div class="stat-num">${checkedItems}</div><div class="stat-label">Packed</div></div>
+    <div class="stat-card"><div class="stat-num">${totalItems ? Math.round(checkedItems/totalItems*100) : 0}%</div><div class="stat-label">Complete</div></div>
+  `;
+  const wrap = document.getElementById('pack-sections');
+  wrap.innerHTML = '';
+  STATE.packSections.forEach(sec => {
+    const filtered = sec.items.filter(item => {
+      if (packFilter === 'bring') return item.tag === 'bring';
+      if (packFilter === 'buy') return item.tag === 'buy';
+      if (packFilter === 'unpacked') return !item.checked;
+      return true;
+    });
+    const done = sec.items.filter(i => i.checked).length;
+    const pct = sec.items.length ? Math.round(done / sec.items.length * 100) : 0;
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="card-header">
+        <div class="card-title">
+          ${sec.title}
+          ${sec.urgent ? '<span class="badge badge-urgent">urgent</span>' : ''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text-muted)">${done}/${sec.items.length}</span>
+          <button class="btn btn-sm" onclick="openAddItemForm('${sec.id}')">+ Add item</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteSection('${sec.id}')">Remove</button>
+        </div>
+      </div>
+      ${filtered.length === 0 ? '<div class="empty-state"><p>No items match this filter.</p></div>' :
+        filtered.map(item => `
+          <div class="pack-item" id="pi-${item.id}">
+            <div class="pack-check ${item.checked ? 'checked' : ''}" onclick="togglePackItem('${sec.id}','${item.id}')"></div>
+            <div style="flex:1;min-width:0">
+              <div class="pack-label ${item.checked ? 'done' : ''}" contenteditable="true"
+                onblur="editPackLabel('${sec.id}','${item.id}',this.textContent)"
+                >${item.label}</div>
+              <div class="pack-note" contenteditable="true"
+                onblur="editPackNote('${sec.id}','${item.id}',this.textContent)"
+                >${item.note || ''}</div>
+            </div>
+            <span class="badge ${item.tag === 'bring' ? 'badge-sage' : 'badge-amber'}">${item.tag === 'bring' ? 'bring' : 'buy'}</span>
+            <div class="pack-actions" style="display:flex;gap:4px">
+              <button class="btn btn-sm" onclick="togglePackTag('${sec.id}','${item.id}')" title="Toggle bring/buy">⇄</button>
+              <button class="btn btn-sm btn-danger" onclick="deletePackItem('${sec.id}','${item.id}')">×</button>
+            </div>
+          </div>
+        `).join('')
+      }
+      <div class="add-form" id="add-form-${sec.id}">
+        <div class="form-row">
+          <input class="form-input flex-1" id="new-item-label-${sec.id}" placeholder="Item name">
+          <input class="form-input flex-1" id="new-item-note-${sec.id}" placeholder="Note (optional)">
+          <select class="form-select" id="new-item-tag-${sec.id}">
+            <option value="bring">Bring</option>
+            <option value="buy">Buy at destination</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="confirmAddItem('${sec.id}')">Add item</button>
+          <button class="btn btn-sm" onclick="closeAddItemForm('${sec.id}')">Cancel</button>
+        </div>
+      </div>
+    `;
+    wrap.appendChild(div);
+  });
+}
+
+function setPackFilter(f, btn) {
+  packFilter = f;
+  document.querySelectorAll('#pack-filters .filter-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPacking();
+}
+function togglePackItem(secId, itemId) {
+  const sec = STATE.packSections.find(s => s.id === secId);
+  const item = sec.items.find(i => i.id === itemId);
+  item.checked = !item.checked;
+  renderPacking();
+}
+function togglePackTag(secId, itemId) {
+  const sec = STATE.packSections.find(s => s.id === secId);
+  const item = sec.items.find(i => i.id === itemId);
+  item.tag = item.tag === 'bring' ? 'buy' : 'bring';
+  renderPacking();
+}
+function editPackLabel(secId, itemId, val) {
+  const sec = STATE.packSections.find(s => s.id === secId);
+  const item = sec.items.find(i => i.id === itemId);
+  item.label = val.trim();
+}
+function editPackNote(secId, itemId, val) {
+  const sec = STATE.packSections.find(s => s.id === secId);
+  const item = sec.items.find(i => i.id === itemId);
+  item.note = val.trim();
+}
+function deletePackItem(secId, itemId) {
+  const sec = STATE.packSections.find(s => s.id === secId);
+  sec.items = sec.items.filter(i => i.id !== itemId);
+  renderPacking(); showToast('Item removed');
+}
+function deleteSection(secId) {
+  if (!confirm('Remove this entire category?')) return;
+  STATE.packSections = STATE.packSections.filter(s => s.id !== secId);
+  renderPacking(); showToast('Category removed');
+}
+function openAddItemForm(secId) {
+  document.getElementById('add-form-' + secId).classList.add('open');
+}
+function closeAddItemForm(secId) {
+  document.getElementById('add-form-' + secId).classList.remove('open');
+}
+function confirmAddItem(secId) {
+  const label = document.getElementById('new-item-label-' + secId).value.trim();
+  if (!label) return;
+  const note = document.getElementById('new-item-note-' + secId).value.trim();
+  const tag = document.getElementById('new-item-tag-' + secId).value;
+  const sec = STATE.packSections.find(s => s.id === secId);
+  sec.items.push({ id: uid(), label, note, tag, checked: false });
+  renderPacking(); showToast('Item added');
+}
+function openAddSectionModal() { openModal('add-section-modal'); }
+function confirmAddSection() {
+  const name = document.getElementById('new-section-name').value.trim();
+  if (!name) return;
+  STATE.packSections.push({ id: uid(), title: name, urgent: false, items: [] });
+  closeModal('add-section-modal');
+  document.getElementById('new-section-name').value = '';
+  renderPacking(); showToast('Category added');
+}
+
+// ============================================================
+// BUDGET
+// ============================================================
+function updateBudget() {
+  const rent = parseInt(document.getElementById('sl-rent').value);
+  const dining = parseInt(document.getElementById('sl-dining').value);
+  const fun = parseInt(document.getElementById('sl-fun').value);
+  document.getElementById('sv-rent').textContent = '$' + rent.toLocaleString();
+  document.getElementById('sv-dining').textContent = '$' + dining.toLocaleString();
+  document.getElementById('sv-fun').textContent = '$' + fun.toLocaleString();
+  renderBudget();
+}
+function renderBudget() {
+  const rent = parseInt(document.getElementById('sl-rent').value);
+  const dining = parseInt(document.getElementById('sl-dining').value);
+  const fun = parseInt(document.getElementById('sl-fun').value);
+  const allItems = [
+    ...STATE.budgetItems,
+    { id: '_rent', label: 'Rent (monthly)', note: 'First payment due August; no deposit required', type: 'monthly', amount: rent, icon: '🏠' },
+    { id: '_dining', label: 'Eating out / cafes', note: 'Restaurants and coffee shops', type: 'monthly', amount: dining, icon: '🍽' },
+    { id: '_fun', label: 'Entertainment & social', note: 'Events, trips, dining with cohort', type: 'monthly', amount: fun, icon: '🎉' },
+  ];
+  const visible = allItems.filter(i => {
+    if (budgetFilter === 'arrival') return i.type === 'arrival';
+    if (budgetFilter === 'monthly') return i.type === 'monthly';
+    return true;
+  });
+  const arrivalTotal = allItems.filter(i=>i.type==='arrival').reduce((a,i)=>a+i.amount,0);
+  const monthlyTotal = allItems.filter(i=>i.type==='monthly').reduce((a,i)=>a+i.amount,0);
+  document.getElementById('budget-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">$${arrivalTotal.toLocaleString()}</div><div class="stat-label">Arrival month</div></div>
+    <div class="stat-card"><div class="stat-num">$${monthlyTotal.toLocaleString()}</div><div class="stat-label">Monthly ongoing</div></div>
+    <div class="stat-card"><div class="stat-num">$${(arrivalTotal+monthlyTotal).toLocaleString()}</div><div class="stat-label">Combined total</div></div>
+  `;
+  const maxAmt = Math.max(...visible.map(i=>i.amount), 1);
+  const arrivalItems = visible.filter(i => i.type === 'arrival');
+  const monthlyItems = visible.filter(i => i.type === 'monthly');
+  let html = '';
+  if (arrivalItems.length) {
+    html += '<div class="section-header">Arrival month — one-time costs</div><div class="card">';
+    html += arrivalItems.map(item => budgetRowHTML(item, maxAmt)).join('');
+    html += '</div>';
+  }
+  if (monthlyItems.length) {
+    html += '<div class="section-header">Monthly ongoing</div><div class="card">';
+    html += monthlyItems.map(item => budgetRowHTML(item, maxAmt)).join('');
+    html += '</div>';
+  }
+  if (!visible.length) html = '<div class="empty-state"><div class="icon">💰</div><p>No items. Add a budget line to get started.</p></div>';
+  document.getElementById('budget-sections').innerHTML = html;
+}
+function budgetRowHTML(item, maxAmt) {
+  const pct = Math.round(item.amount / maxAmt * 100);
+  const isEditable = !item.id.startsWith('_');
+  const color = item.type === 'arrival' ? 'var(--terracotta)' : 'var(--amber)';
+  return `<div class="budget-row">
+    <span class="budget-icon">${item.icon || '•'}</span>
+    <div class="budget-info">
+      <div class="budget-label">${item.label}</div>
+      <div class="budget-note">${item.note || ''}</div>
+    </div>
+    <div class="budget-bar-wrap"><div class="budget-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    <span class="badge ${item.type === 'arrival' ? 'badge-terra' : 'badge-amber'}">${item.type === 'arrival' ? 'arrival' : 'monthly'}</span>
+    <span class="budget-amount">$${item.amount.toLocaleString()}</span>
+    ${isEditable ? `<div class="pack-actions" style="display:flex;gap:4px"><button class="btn btn-sm btn-danger" onclick="deleteBudgetItem('${item.id}')">×</button></div>` : ''}
+  </div>`;
+}
+function setBudgetFilter(f, btn) {
+  budgetFilter = f;
+  document.querySelectorAll('#tab-budget .filter-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderBudget();
+}
+function openAddBudgetModal() { openModal('add-budget-modal'); }
+function confirmAddBudget() {
+  const label = document.getElementById('new-budget-label').value.trim();
+  const note = document.getElementById('new-budget-note').value.trim();
+  const amount = parseInt(document.getElementById('new-budget-amount').value) || 0;
+  const type = document.getElementById('new-budget-type').value;
+  if (!label) return;
+  STATE.budgetItems.push({ id: uid(), label, note, type, amount, icon: type === 'arrival' ? '📦' : '🔄' });
+  closeModal('add-budget-modal');
+  ['new-budget-label','new-budget-note','new-budget-amount'].forEach(id => document.getElementById(id).value = '');
+  renderBudget(); showToast('Budget line added');
+}
+function deleteBudgetItem(id) {
+  STATE.budgetItems = STATE.budgetItems.filter(i => i.id !== id);
+  renderBudget(); showToast('Item removed');
+}
+
+// ============================================================
+// FLIGHTS
+// ============================================================
+function renderFlights() {
+  const wrap = document.getElementById('flight-legs-wrap');
+  if (!STATE.flightLegs.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="icon">✈️</div><p>No flight legs yet. Add your first leg to get started.</p></div>';
+    renderFlightLinks();
+    return;
+  }
+  let html = '<div class="card"><div class="card-title" style="margin-bottom:14px">Your journey</div>';
+  STATE.flightLegs.forEach((leg, i) => {
+    if (leg.type === 'flight') {
+      html += `<div class="flight-leg">
+        <div>
+          <div class="leg-dot"></div>
+          ${i < STATE.flightLegs.length - 1 ? '<div class="leg-connector"></div>' : ''}
+        </div>
+        <div class="leg-info" style="flex:1">
+          <div class="leg-airports">${leg.from} → ${leg.to}</div>
+          <div class="leg-detail">${leg.airline || ''}</div>
+          <div class="leg-date">${leg.date || ''}${leg.note ? ' · ' + leg.note : ''}</div>
+        </div>
+        <div class="leg-actions">
+          <button class="btn btn-sm btn-icon" onclick="editLeg('${leg.id}')" title="Edit">✎</button>
+          <button class="btn btn-sm btn-danger btn-icon" onclick="deleteLeg('${leg.id}')" title="Remove">×</button>
+        </div>
+      </div>`;
+    } else {
+      html += `<div style="padding:6px 0 6px 22px">
+        <div class="stay-badge">
+          <span>🏙</span>
+          <div style="flex:1">
+            <div style="font-weight:500">${leg.city}</div>
+            <div style="font-size:11px;color:var(--amber)">${leg.duration}${leg.note ? ' — ' + leg.note : ''}</div>
+          </div>
+          <button class="btn btn-sm btn-icon" onclick="editLeg('${leg.id}')" title="Edit">✎</button>
+          <button class="btn btn-sm btn-danger btn-icon" onclick="deleteLeg('${leg.id}')" title="Remove">×</button>
+        </div>
+        ${i < STATE.flightLegs.length - 1 ? '<div style="width:1px;height:16px;background:var(--border);margin-left:10px"></div>' : ''}
+      </div>`;
+    }
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+  renderFlightLinks();
+}
+function renderFlightLinks() {
+  const legs = STATE.flightLegs.filter(l => l.type === 'flight');
+  const wrap = document.getElementById('flight-links');
+  if (!legs.length) { wrap.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Add flight legs to generate search links.</span>'; return; }
+  wrap.innerHTML = legs.map(leg => {
+    const gfUrl = `https://www.google.com/travel/flights/search?q=flights+from+${leg.from}+to+${leg.to}`;
+    const kayakUrl = `https://www.kayak.com/flights/${leg.from}-${leg.to}`;
+    return `<a class="btn btn-sm" href="${gfUrl}" target="_blank">Google Flights: ${leg.from}→${leg.to}</a>
+            <a class="btn btn-sm" href="${kayakUrl}" target="_blank">Kayak: ${leg.from}→${leg.to}</a>`;
+  }).join('');
+}
+function addFlightLeg() {
+  editingLegId = null;
+  document.getElementById('leg-modal-title').textContent = 'Add flight leg';
+  ['leg-from','leg-to','leg-airline','leg-date','leg-note'].forEach(id => document.getElementById(id).value = '');
+  openModal('add-leg-modal');
+}
+function editLeg(id) {
+  const leg = STATE.flightLegs.find(l => l.id === id);
+  editingLegId = id;
+  if (leg.type === 'flight') {
+    document.getElementById('leg-modal-title').textContent = 'Edit flight leg';
+    document.getElementById('leg-from').value = leg.from || '';
+    document.getElementById('leg-to').value = leg.to || '';
+    document.getElementById('leg-airline').value = leg.airline || '';
+    document.getElementById('leg-date').value = leg.date || '';
+    document.getElementById('leg-note').value = leg.note || '';
+    openModal('add-leg-modal');
+  } else {
+    document.getElementById('stay-city').value = leg.city || '';
+    document.getElementById('stay-duration').value = leg.duration || '';
+    document.getElementById('stay-note').value = leg.note || '';
+    openModal('add-stay-modal');
+  }
+}
+function confirmAddLeg() {
+  const from = document.getElementById('leg-from').value.trim().toUpperCase();
+  const to = document.getElementById('leg-to').value.trim().toUpperCase();
+  if (!from || !to) return;
+  const leg = {
+    id: editingLegId || uid(),
+    type: 'flight',
+    from, to,
+    airline: document.getElementById('leg-airline').value.trim(),
+    date: document.getElementById('leg-date').value.trim(),
+    note: document.getElementById('leg-note').value.trim(),
+  };
+  if (editingLegId) {
+    const idx = STATE.flightLegs.findIndex(l => l.id === editingLegId);
+    STATE.flightLegs[idx] = leg;
+  } else {
+    STATE.flightLegs.push(leg);
+  }
+  closeModal('add-leg-modal'); editingLegId = null;
+  renderFlights(); showToast(editingLegId ? 'Leg updated' : 'Leg added');
+}
+function addStay() {
+  editingLegId = null;
+  ['stay-city','stay-duration','stay-note'].forEach(id => document.getElementById(id).value = '');
+  openModal('add-stay-modal');
+}
+function confirmAddStay() {
+  const city = document.getElementById('stay-city').value.trim();
+  if (!city) return;
+  const stay = {
+    id: editingLegId || uid(),
+    type: 'stay',
+    city,
+    duration: document.getElementById('stay-duration').value.trim(),
+    note: document.getElementById('stay-note').value.trim(),
+  };
+  if (editingLegId) {
+    const idx = STATE.flightLegs.findIndex(l => l.id === editingLegId);
+    STATE.flightLegs[idx] = stay;
+  } else {
+    STATE.flightLegs.push(stay);
+  }
+  closeModal('add-stay-modal'); editingLegId = null;
+  renderFlights(); showToast('Stay added');
+}
+function deleteLeg(id) {
+  STATE.flightLegs = STATE.flightLegs.filter(l => l.id !== id);
+  renderFlights(); showToast('Removed');
+}
+function openFlightSearch() {
+  const legs = STATE.flightLegs.filter(l => l.type === 'flight');
+  if (!legs.length) { showToast('Add flight legs first'); return; }
+  const first = legs[0];
+  window.open(`https://www.google.com/travel/flights/search?q=flights+from+${first.from}+to+${first.to}`, '_blank');
+}
+
+// ============================================================
+// CUSTOMS
+// ============================================================
+function renderCustoms() {
+  const wrap = document.getElementById('customs-sections');
+  if (!STATE.customsSections.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="icon">🛂</div><p>No customs notes yet.</p></div>';
+    return;
+  }
+  wrap.innerHTML = '<div class="card">' + STATE.customsSections.map(sec => `
+    <div class="customs-q" onclick="toggleCustoms('${sec.id}',this)" id="cq-${sec.id}">
+      <span>📋</span> ${sec.q}
+      <span class="chevron">▾</span>
+    </div>
+    <div class="customs-body" id="cb-${sec.id}">
+      <div contenteditable="true" onblur="editCustomsBody('${sec.id}',this.textContent)"
+        style="white-space:pre-wrap;outline:none;border-radius:4px;padding:4px"
+        onfocus="this.style.background='var(--cream)'" onblur2="this.style.background=''"
+        >${sec.body}</div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn btn-sm btn-danger" onclick="deleteCustoms('${sec.id}')">Remove</button>
+      </div>
+    </div>
+  `).join('') + '</div>';
+}
+function toggleCustoms(id, el) {
+  el.classList.toggle('open');
+  document.getElementById('cb-' + id).classList.toggle('open');
+}
+function editCustomsBody(id, val) {
+  const sec = STATE.customsSections.find(s => s.id === id);
+  if (sec) sec.body = val.trim();
+}
+function deleteCustoms(id) {
+  STATE.customsSections = STATE.customsSections.filter(s => s.id !== id);
+  renderCustoms(); showToast('Note removed');
+}
+function openAddCustomsModal() { openModal('add-customs-modal'); }
+function confirmAddCustoms() {
+  const q = document.getElementById('new-customs-q').value.trim();
+  const body = document.getElementById('new-customs-body').value.trim();
+  if (!q) return;
+  STATE.customsSections.push({ id: uid(), q, body });
+  closeModal('add-customs-modal');
+  document.getElementById('new-customs-q').value = '';
+  document.getElementById('new-customs-body').value = '';
+  renderCustoms(); showToast('Note added');
+}
+
+// ============================================================
+// SHARE & TEMPLATE
+// ============================================================
+function openShareModal() {
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(STATE))));
+  const url = window.location.href.split('?')[0] + '?data=' + encoded;
+  document.getElementById('share-url').value = url;
+  openModal('share-modal');
+}
+function copyShareUrl() {
+  const input = document.getElementById('share-url');
+  input.select();
+  document.execCommand('copy');
+  showToast('Link copied!');
+}
+function openTemplateModal() { openModal('template-modal'); }
+function loadTemplate(type) {
+  if (!confirm('This will replace your current data. Continue?')) return;
+  STATE = JSON.parse(JSON.stringify(type === 'blank' ? BLANK_DATA : SANDRA_DATA));
+  closeModal('template-modal');
+  renderPacking(); renderBudget(); renderFlights(); renderCustoms();
+  showToast(type === 'blank' ? 'Blank template loaded' : "Sandra's template loaded");
+}
+
+// ============================================================
+// LOAD FROM URL
+// ============================================================
+function loadFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const data = params.get('data');
+  if (data) {
+    try {
+      STATE = JSON.parse(decodeURIComponent(escape(atob(data))));
+      showToast('Planner loaded from shared link!');
+    } catch(e) { console.warn('Could not load shared data'); }
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadFromUrl();
+renderPacking();
+renderBudget();
+renderFlights();
+renderCustoms();
+</script>
+</body>
+</html>
