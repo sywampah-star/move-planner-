@@ -658,14 +658,6 @@
 
   /* RESPONSIVE */
   @media (max-width: 640px) {
-    /* Disable accidental contenteditable editing on touch devices.
-       Users read and check items on mobile; editing is a desktop action. */
-    [contenteditable="true"] {
-      pointer-events: none;
-      -webkit-user-select: text;
-      user-select: text;
-      cursor: default;
-    }
     .tabs-bar { display: none; }
     .mobile-nav { display: block; }
     .main { padding: 16px 14px 90px; }
