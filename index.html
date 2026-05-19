@@ -577,6 +577,42 @@
     font-size: 12px; color: var(--amber);
   }
 
+  /* KEY DATES TAB */
+  .dates-progress {
+    height: 6px; background: var(--border-light); border-radius: 3px; margin-bottom: 18px; overflow: hidden;
+  }
+  .dates-progress-bar { height: 100%; background: var(--terracotta); border-radius: 3px; transition: width 0.4s; }
+  .dates-group-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text-muted); padding: 16px 0 8px;
+    border-bottom: 1px solid var(--border-light); margin-bottom: 2px;
+  }
+  .dates-group-label:first-of-type { padding-top: 0; }
+  .date-entry {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 0; border-top: 1px solid var(--border-light);
+  }
+  .date-done-btn {
+    width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border);
+    background: transparent; cursor: pointer; flex-shrink: 0; margin-top: 2px;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .date-done-btn.done { background: var(--success); border-color: var(--success); color: #fff; }
+  .date-done-btn:hover:not(.done) { border-color: var(--terracotta); }
+  .date-info { flex: 1; min-width: 0; }
+  .date-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .date-entry.is-done .date-label { text-decoration: line-through; color: var(--text-muted); }
+  .date-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .date-countdown { font-size: 12px; font-weight: 600; }
+  .date-countdown.urgent  { color: var(--danger); }
+  .date-countdown.soon    { color: var(--amber); }
+  .date-countdown.future  { color: var(--sage); }
+  .date-countdown.past    { color: var(--text-muted); font-weight: 400; }
+  .date-countdown.done-lbl{ color: var(--success); }
+  .date-cat { font-size: 10px; padding: 2px 7px; border-radius: 4px; background: var(--cream-dark); color: var(--text-muted); }
+  .date-note { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .date-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
   /* COUNTDOWN */
   .countdown-card {
     background: linear-gradient(135deg, var(--terracotta) 0%, var(--amber) 100%);
@@ -739,15 +775,16 @@
     z-index: 100;
     box-shadow: 0 -1px 0 var(--border-light), 0 -4px 16px rgba(0,0,0,0.06);
   }
-  .mobile-nav-inner { display: flex; }
+  .mobile-nav-inner { display: flex; overflow-x: auto; scrollbar-width: none; }
+  .mobile-nav-inner::-webkit-scrollbar { display: none; }
   .mob-btn {
-    flex: 1; display: flex; flex-direction: column;
+    flex: 0 0 auto; min-width: 64px; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 3px;
     border: none; background: none; color: var(--text-muted);
     font-size: 10px; font-weight: 500;
     font-family: 'DM Sans', sans-serif;
     cursor: pointer; transition: color 0.15s;
-    padding: 10px 4px 8px; min-height: 56px;
+    padding: 10px 8px 8px; min-height: 56px;
   }
   .mob-btn svg { width: 22px; height: 22px; stroke-width: 1.7; }
   .mob-btn.active { color: var(--terracotta); }
@@ -951,6 +988,7 @@
     <button class="tab-btn" data-tab="budget" onclick="showTab('budget')"><svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Budget</button>
     <button class="tab-btn" data-tab="flights" onclick="showTab('flights')"><svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19.5 2.5c-1.5-1.5-3.5-1.5-5 0L11 6 2.8 3.2 1.4 4.6 8 11.1l-3.5 3.4H2l-1 1 3 1 1 3 1-1V16l3.5-3.4z"/></svg>Flights</button>
     <button class="tab-btn" data-tab="customs" onclick="showTab('customs')"><svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Notes</button>
+    <button class="tab-btn" data-tab="dates" onclick="showTab('dates')"><svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Dates</button>
   </div>
 </nav>
 
@@ -1018,6 +1056,12 @@
       <button class="btn btn-primary" onclick="addFlightLeg()">+ Add leg</button>
       <button class="btn" onclick="addStay()">+ Add stay / stopover</button>
     </div>
+  </div>
+
+  <!-- ===== DATES TAB ===== -->
+  <div id="tab-dates" class="tab-content">
+    <div id="dates-wrap"></div>
+    <button class="btn btn-primary" onclick="openAddDateModal()" style="margin-top:12px">+ Add date</button>
   </div>
 
   <!-- ===== CUSTOMS TAB ===== -->
@@ -1144,6 +1188,39 @@
   </div>
 </div>
 
+<!-- ADD / EDIT KEY DATE MODAL -->
+<div class="modal-overlay" id="add-date-modal">
+  <div class="modal">
+    <div class="modal-title" id="date-modal-title">Add key date</div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="new-date-label" placeholder="e.g. SEVIS fee payment">
+    </div>
+    <div class="form-row">
+      <div style="flex:1">
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Date</label>
+        <input class="form-input" id="new-date-date" type="date" style="width:100%">
+      </div>
+      <div style="flex:1">
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px">Category</label>
+        <select class="form-select" id="new-date-cat" style="width:100%">
+          <option>Visa &amp; Immigration</option>
+          <option>Academic</option>
+          <option>Housing</option>
+          <option>Financial</option>
+          <option>Travel</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="new-date-note" placeholder="Note (optional)">
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-date-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddDate()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADD FLIGHT LEG MODAL -->
 <div class="modal-overlay" id="add-leg-modal">
   <div class="modal">
@@ -1215,6 +1292,10 @@
     <button class="mob-btn" data-tab="customs" onclick="showTab('customs')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       <span>Notes</span>
+    </button>
+    <button class="mob-btn" data-tab="dates" onclick="showTab('dates')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span>Dates</span>
     </button>
   </div>
 </nav>
@@ -1427,6 +1508,7 @@ function setupFirebaseSync() {
 
 function applyRemoteData(data) {
   if (data.packSections !== undefined) STATE.packSections = data.packSections || [];
+  if (data.keyDates !== undefined) STATE.keyDates = data.keyDates || [];
   if (data.flightLegs !== undefined) STATE.flightLegs = data.flightLegs || [];
   if (data.flightChecklist !== undefined) STATE.flightChecklist = data.flightChecklist || [];
   if (data.customsSections !== undefined) STATE.customsSections = data.customsSections || [];
@@ -1461,6 +1543,7 @@ function saveToFirebase() {
     const data = {
       packSections: STATE.packSections,
       budgetSections: STATE.budgetSections,
+      keyDates: STATE.keyDates,
       flightLegs: STATE.flightLegs,
       flightChecklist: STATE.flightChecklist,
       customsSections: STATE.customsSections,
@@ -1631,6 +1714,17 @@ const SANDRA_DATA = {
     { id: 'fc10', label: 'US phone plan researched (Mint Mobile, T-Mobile, etc.)', cat: 'Day of travel', checked: false },
     { id: 'fc11', label: 'USD cash for arrival ($50–100)', cat: 'Day of travel', checked: false },
   ],
+  keyDates: [
+    { id: 'kd1', label: 'SEVIS fee payment', date: '2026-05-25', cat: 'Visa & Immigration', note: 'Pay at fmjfee.com — required before visa interview', done: false },
+    { id: 'kd2', label: 'F-1 visa interview at US Embassy Accra', date: '2026-06-05', cat: 'Visa & Immigration', note: '', done: false },
+    { id: 'kd3', label: 'Receive original I-20 from Cornell', date: '2026-06-10', cat: 'Academic', note: 'Must arrive before your visa interview', done: false },
+    { id: 'kd4', label: 'Housing contract signed', date: '2026-06-20', cat: 'Housing', note: 'Off-campus apartment; move-in typically Aug 1', done: false },
+    { id: 'kd5', label: 'Health insurance enrollment deadline', date: '2026-07-31', cat: 'Financial', note: 'Cornell Student Health Plan or approved waiver', done: false },
+    { id: 'kd6', label: 'Flight booking confirmed', date: '2026-05-01', cat: 'Travel', note: 'Delta DL157 — ACC → JFK → ITH', done: true },
+    { id: 'kd7', label: 'Departure from Accra', date: '2026-07-15', cat: 'Travel', note: 'ACC → JFK, Delta DL157', done: false },
+    { id: 'kd8', label: 'Cornell MBA orientation begins', date: '2026-08-17', cat: 'Academic', note: 'Johnson School of Management', done: false },
+    { id: 'kd9', label: 'First day of classes', date: '2026-08-24', cat: 'Academic', note: '', done: false },
+  ],
   customsSections: [
     { id: 'cs1', q: 'What documents do I need at US customs?', body: 'Carry these in your hand luggage (never checked):\n• Passport with F-1 visa stamp\n• I-20 form (original — most important)\n• Cornell admission letter\n• Proof of funds (bank statement or scholarship letter)\n• Ithaca apartment address written down\n\nThe officer will verify your SEVIS record is active. Make sure your SEVIS fee was paid before you travel.' },
     { id: 'cs2', q: 'What will the customs officer ask me?', body: '"What is the purpose of your visit?" → "I\'m here to study. I\'m starting my MBA at Cornell University."\n"How long will you be staying?" → "For the duration of my program, about two years."\n"Where will you be living?" → Give your Ithaca apartment address.\n"Do you have sufficient funds?" → Yes — mention your funding source briefly.\n\nStay calm, answer directly, do not over-explain.' },
@@ -1651,6 +1745,7 @@ const BLANK_DATA = {
     { id: 'arrival', title: 'Arrival month', type: 'arrival', items: [] },
     { id: 'monthly', title: 'Monthly ongoing', type: 'monthly', items: [] },
   ],
+  keyDates: [],
   flightLegs: [],
   flightChecklist: [
     { id: 'fc1',  label: 'Passport (valid 6+ months beyond program end)', cat: 'Documents', checked: false },
@@ -1787,9 +1882,10 @@ function showTab(name) {
   if (name === 'budget') renderBudget();
   if (name === 'flights') renderFlights();
   if (name === 'customs') renderCustoms();
+  if (name === 'dates') renderDates();
 }
 function renderAll() {
-  renderPacking(); renderBudget(); renderFlights(); renderCustoms();
+  renderPacking(); renderBudget(); renderFlights(); renderCustoms(); renderDates();
 }
 
 // ============================================================
@@ -2654,6 +2750,147 @@ function addCarryOnSuggestion(idx) {
   renderFlights();
   renderPacking();
 }
+// ============================================================
+// KEY DATES
+// ============================================================
+function renderDates() {
+  const wrap = document.getElementById('dates-wrap');
+  if (!wrap) return;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const total = STATE.keyDates.length;
+  const done  = STATE.keyDates.filter(d => d.done).length;
+  const pct   = total ? Math.round(done / total * 100) : 0;
+
+  if (!total) {
+    wrap.innerHTML = `<div class="empty-state">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px;color:var(--text-muted)"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <p style="font-weight:500">No key dates yet</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:4px">Add visa deadlines, orientation dates, housing move-in — anything time-sensitive.</p>
+    </div>`;
+    return;
+  }
+
+  const sorted = [...STATE.keyDates].sort((a,b) => new Date(a.date) - new Date(b.date));
+  const upcoming = sorted.filter(d => new Date(d.date) >= today || d.done === false && new Date(d.date) >= today);
+  const past = sorted.filter(d => new Date(d.date) < today && !d.done);
+  // Actually: upcoming = not done AND date >= today OR done regardless of date (they stay in upcoming as greyed)
+  // Simpler grouping: past = date < today AND not done. Everything else = upcoming.
+  const isPast = d => new Date(d.date) < today && !d.done;
+  const upcomingDates = sorted.filter(d => !isPast(d));
+  const pastDates     = sorted.filter(d => isPast(d));
+
+  function countdownLabel(d) {
+    if (d.done) return { text: 'Done ✓', cls: 'done-lbl' };
+    const diff = new Date(d.date) - today;
+    const days = Math.round(diff / 86400000);
+    if (days < 0)  return { text: `${Math.abs(days)}d overdue`, cls: 'urgent' };
+    if (days === 0) return { text: 'Today', cls: 'urgent' };
+    if (days === 1) return { text: 'Tomorrow', cls: 'urgent' };
+    if (days <= 7)  return { text: `in ${days} days`, cls: 'urgent' };
+    if (days <= 30) return { text: `in ${days} days`, cls: 'soon' };
+    return { text: `in ${days} days`, cls: 'future' };
+  }
+
+  function entryHTML(d) {
+    const { text, cls } = countdownLabel(d);
+    const dateStr = new Date(d.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `<div class="date-entry ${d.done ? 'is-done' : ''}">
+      <button class="date-done-btn ${d.done ? 'done' : ''}" onclick="toggleDateDone('${d.id}')" title="${d.done ? 'Mark incomplete' : 'Mark done'}">
+        ${d.done ? '<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,6 5,9 10,3"/></svg>' : ''}
+      </button>
+      <div class="date-info">
+        <div class="date-label">${d.label}</div>
+        <div class="date-meta">
+          <span class="date-countdown ${cls}">${text}</span>
+          <span style="font-size:11px;color:var(--text-muted)">${dateStr}</span>
+          <span class="date-cat">${d.cat}</span>
+        </div>
+        ${d.note ? `<div class="date-note">${d.note}</div>` : ''}
+      </div>
+      <div class="date-actions">
+        <button class="btn btn-sm btn-icon" onclick="openEditDateModal('${d.id}')" title="Edit">✎</button>
+        <button class="btn btn-sm btn-danger btn-icon" onclick="deleteDateEntry('${d.id}')" title="Delete">×</button>
+      </div>
+    </div>`;
+  }
+
+  let html = `<div class="card">
+    <div class="card-header" style="margin-bottom:6px">
+      <div class="card-title">Key dates</div>
+      <span style="font-size:12px;color:${pct===100?'var(--success)':'var(--text-muted)'}">${done}/${total} done</span>
+    </div>
+    <div class="dates-progress"><div class="dates-progress-bar" style="width:${pct}%"></div></div>`;
+
+  if (upcomingDates.length) {
+    html += `<div class="dates-group-label">Upcoming</div>`;
+    html += upcomingDates.map(entryHTML).join('');
+  }
+  if (pastDates.length) {
+    html += `<div class="dates-group-label" style="margin-top:8px">Past (not marked done)</div>`;
+    html += pastDates.map(entryHTML).join('');
+  }
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+let editingDateId = null;
+
+function openAddDateModal() {
+  editingDateId = null;
+  document.getElementById('date-modal-title').textContent = 'Add key date';
+  ['new-date-label','new-date-note'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('new-date-date').value = '';
+  document.getElementById('new-date-cat').value = 'Visa & Immigration';
+  openModal('add-date-modal');
+}
+function openEditDateModal(id) {
+  const d = STATE.keyDates.find(x => x.id === id);
+  if (!d) return;
+  editingDateId = id;
+  document.getElementById('date-modal-title').textContent = 'Edit date';
+  document.getElementById('new-date-label').value = d.label;
+  document.getElementById('new-date-date').value = d.date;
+  document.getElementById('new-date-cat').value = d.cat;
+  document.getElementById('new-date-note').value = d.note || '';
+  openModal('add-date-modal');
+}
+function confirmAddDate() {
+  const label = document.getElementById('new-date-label').value.trim();
+  const date  = document.getElementById('new-date-date').value;
+  if (!label || !date) { showToast('Label and date are required'); return; }
+  const entry = {
+    id: editingDateId || uid(),
+    label, date,
+    cat:  document.getElementById('new-date-cat').value,
+    note: document.getElementById('new-date-note').value.trim(),
+    done: editingDateId ? STATE.keyDates.find(d => d.id === editingDateId)?.done || false : false,
+  };
+  if (editingDateId) {
+    const idx = STATE.keyDates.findIndex(d => d.id === editingDateId);
+    STATE.keyDates[idx] = entry;
+  } else {
+    STATE.keyDates.push(entry);
+  }
+  editingDateId = null;
+  closeModal('add-date-modal');
+  saveToFirebase(); renderDates();
+  showToast(editingDateId ? 'Date updated' : 'Date added');
+}
+function toggleDateDone(id) {
+  const d = STATE.keyDates.find(x => x.id === id);
+  if (!d) return;
+  d.done = !d.done;
+  saveToFirebase(); renderDates();
+}
+function deleteDateEntry(id) {
+  const d = STATE.keyDates.find(x => x.id === id);
+  const idx = STATE.keyDates.findIndex(x => x.id === id);
+  STATE.keyDates.splice(idx, 1);
+  saveToFirebase(); renderDates();
+  softDelete(`"${d.label}" removed`, () => { STATE.keyDates.splice(idx, 0, d); renderDates(); });
+}
+
 // ============================================================
 // CUSTOMS
 // ============================================================
