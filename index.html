@@ -1596,19 +1596,32 @@ function applyRemoteData(data) {
 
   if (data.tasks !== undefined) {
     STATE.tasks = data.tasks || [];
-  } else if (data.keyDates !== undefined) {
-    // Migrate legacy keyDates → tasks
-    const migrated = (data.keyDates || []).map(d => ({
-      id: d.id, label: d.label, phase: 'Before you leave', cat: d.cat || 'General',
-      status: d.done ? 'done' : 'todo', date: d.date || null, note: d.note || '',
-    }));
-    STATE.tasks = migrated;
   }
 
-  // Migrate old tasks that lack cat/date/note fields
-  STATE.tasks = STATE.tasks.map(t => ({
-    cat: 'General', date: null, note: '', ...t,
-  }));
+  // Always merge legacy keyDates — even if tasks already exist
+  if (data.keyDates && data.keyDates.length) {
+    const existingIds = new Set(STATE.tasks.map(t => t.id));
+    const fromDates = data.keyDates
+      .filter(d => !existingIds.has(d.id))
+      .map(d => ({
+        id: d.id, label: d.label,
+        phase: d.cat === 'Academic' ? 'First month' : 'Before you leave',
+        cat:    d.cat || 'General',
+        status: d.done ? 'done' : 'todo',
+        date:   d.date || null,
+        note:   d.note || '',
+      }));
+    STATE.tasks = [...STATE.tasks, ...fromDates];
+  }
+
+  // Backfill cat/phase for old tasks using SANDRA_DATA as reference, then ensure defaults
+  const sandraMap = Object.fromEntries(SANDRA_DATA.tasks.map(t => [t.id, t]));
+  STATE.tasks = STATE.tasks.map(t => {
+    const ref = sandraMap[t.id];
+    const defaults = { cat: 'General', date: null, note: '', phase: STATE.taskPhases[0] };
+    const backfill = ref ? { cat: ref.cat, phase: ref.phase } : {};
+    return { ...defaults, ...backfill, ...t };
+  });
 
   if (data.budgetSections !== undefined) {
     STATE.budgetSections = data.budgetSections || [];
