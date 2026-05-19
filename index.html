@@ -618,13 +618,17 @@
   .task-phase-header {
     display: flex; align-items: center; justify-content: space-between;
     padding-bottom: 8px; border-bottom: 2px solid var(--border-light); margin-bottom: 2px;
+    cursor: pointer; user-select: none;
   }
+  .task-phase-header:hover .task-phase-title { color: var(--terracotta); }
   .task-phase-title {
-    font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 500; color: var(--text-primary);
+    font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 500; color: var(--text-primary); transition: color 0.15s;
   }
   .task-phase-count { font-size: 11px; color: var(--text-muted); }
   .task-phase-bar { height: 3px; background: var(--border-light); border-radius: 2px; margin-bottom: 4px; overflow: hidden; }
   .task-phase-bar-fill { height: 100%; background: var(--terracotta); border-radius: 2px; transition: width 0.3s; }
+  .task-group-body { overflow: hidden; transition: max-height 0.28s ease, opacity 0.2s ease; max-height: 4000px; opacity: 1; }
+  .task-group-body.collapsed { max-height: 0; opacity: 0; }
   .task-row {
     display: flex; align-items: flex-start; gap: 10px;
     padding: 10px 0; border-top: 1px solid var(--border-light);
@@ -1903,9 +1907,11 @@ let STATE = JSON.parse(JSON.stringify(SANDRA_DATA));
 let packFilter = 'all';
 let budgetFilter = 'all';
 let tasksGroupBy = 'phase';
+let tasksFilter  = 'all';
 let editingLegId = null;
-let collapsedSections = new Set(JSON.parse(localStorage.getItem('mw-collapsed') || '[]'));
-let collapsedBudgetSections = new Set(JSON.parse(localStorage.getItem('mw-budget-sec') || '[]'));
+let collapsedSections     = new Set(JSON.parse(localStorage.getItem('mw-collapsed')      || '[]'));
+let collapsedBudgetSections = new Set(JSON.parse(localStorage.getItem('mw-budget-sec')   || '[]'));
+let collapsedTaskGroups   = new Set(JSON.parse(localStorage.getItem('mw-task-collapsed') || '[]'));
 let coSuggestionsOpen = false;
 
 const CARRY_ON_SUGGESTIONS = [
@@ -2300,6 +2306,15 @@ function dndDrop(type, fromId, toId, fromSec, toSec, before) {
     if (!sec) return;
     reorder(sec.items, fromId, toId);
     saveToFirebase(); renderBudget();
+  } else if (type === 'task') {
+    const task = STATE.tasks.find(t => t.id === fromId);
+    if (!task) return;
+    if (fromSec !== toSec) {
+      if (tasksGroupBy === 'phase') task.phase = toSec;
+      else task.cat = toSec;
+    }
+    reorder(STATE.tasks, fromId, toId);
+    saveToFirebase(); renderTasks();
   }
 }
 
@@ -2897,6 +2912,19 @@ function populateTaskSelects(phase, cat) {
 
 function setTasksGroupBy(mode) {
   tasksGroupBy = mode;
+  tasksFilter  = 'all';
+  renderTasks();
+}
+
+function setTasksFilter(f) {
+  tasksFilter = f;
+  renderTasks();
+}
+
+function toggleTaskGroup(name) {
+  if (collapsedTaskGroups.has(name)) collapsedTaskGroups.delete(name);
+  else collapsedTaskGroups.add(name);
+  localStorage.setItem('mw-task-collapsed', JSON.stringify([...collapsedTaskGroups]));
   renderTasks();
 }
 
@@ -2934,8 +2962,6 @@ function renderTasks() {
     return;
   }
 
-  const checkSVG = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,6 5,9 10,3"/></svg>`;
-
   function daysUntil(t) {
     if (!t.date) return null;
     return Math.round((new Date(t.date + 'T00:00:00') - today) / 86400000);
@@ -2945,7 +2971,7 @@ function renderTasks() {
     const days = daysUntil(t);
     if (days === null) return '';
     if (t.status === 'done') return `<span class="date-countdown done-lbl">Done ✓</span>`;
-    if (days < 0)  return `<span class="date-countdown urgent">${Math.abs(days)}d overdue</span>`;
+    if (days < 0)   return `<span class="date-countdown urgent">${Math.abs(days)}d overdue</span>`;
     if (days === 0) return `<span class="date-countdown urgent">Today</span>`;
     if (days === 1) return `<span class="date-countdown urgent">Tomorrow</span>`;
     if (days <= 7)  return `<span class="date-countdown urgent">in ${days} days</span>`;
@@ -2954,7 +2980,7 @@ function renderTasks() {
     return `<span class="date-countdown future">${ds}</span>`;
   }
 
-  // ── Urgent callout ──
+  // ── Urgent callout (always from full list, ignores filter) ──
   const alertItems = STATE.tasks
     .filter(t => t.status !== 'done' && t.date)
     .filter(t => { const d = daysUntil(t); return d !== null && d >= 0 && d <= 14; })
@@ -2985,31 +3011,47 @@ function renderTasks() {
     html += `</div>`;
   }
 
-  // ── Group-by toggle + progress ──
+  // ── Active task pool (respects filter) ──
+  const visibleTasks = tasksFilter === 'all'
+    ? STATE.tasks
+    : STATE.tasks.filter(t => (tasksGroupBy === 'phase' ? t.phase : t.cat) === tasksFilter);
+
+  // ── Group-by toggle + filter pills + progress ──
+  const groups = tasksGroupBy === 'phase' ? STATE.taskPhases : STATE.taskCats;
+  const filterPills = ['all', ...groups].map(f =>
+    `<button class="filter-pill ${tasksFilter===f?'active':''}" onclick="setTasksFilter('${f}')">${f === 'all' ? 'All' : f}</button>`
+  ).join('');
+
   html += `<div class="card">
     <div class="card-header" style="margin-bottom:6px">
       <div class="card-title">All tasks</div>
       <span style="font-size:12px;color:${pct===100?'var(--success)':'var(--text-muted)'}">${done}/${total} done</span>
     </div>
     <div class="dates-progress" style="margin-bottom:12px"><div class="dates-progress-bar" style="width:${pct}%"></div></div>
-    <div class="filter-row" style="margin-bottom:16px">
+    <div class="filter-row" style="margin-bottom:4px">
       <button class="filter-pill ${tasksGroupBy==='phase'?'active':''}" onclick="setTasksGroupBy('phase')">By phase</button>
       <button class="filter-pill ${tasksGroupBy==='cat'?'active':''}" onclick="setTasksGroupBy('cat')">By category</button>
-    </div>`;
-
-  const groups = tasksGroupBy === 'phase' ? STATE.taskPhases : STATE.taskCats;
+    </div>
+    <div class="filter-row" style="margin-bottom:16px">${filterPills}</div>`;
 
   function renderGroup(groupName) {
-    const items = STATE.tasks.filter(t => (tasksGroupBy === 'phase' ? t.phase : t.cat) === groupName);
+    const items = visibleTasks.filter(t => (tasksGroupBy === 'phase' ? t.phase : t.cat) === groupName);
     if (!items.length) return '';
     const gDone = items.filter(t => t.status === 'done').length;
     const gPct  = Math.round(gDone / items.length * 100);
+    const isCollapsed = collapsedTaskGroups.has(groupName);
+
     let g = `<div class="task-phase-wrap">
-      <div class="task-phase-header">
+      <div class="task-phase-header" onclick="toggleTaskGroup('${groupName.replace(/'/g,"\\'")}')">
         <span class="task-phase-title">${groupName}</span>
-        <span class="task-phase-count">${gDone}/${items.length}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="task-phase-count">${gDone}/${items.length}</span>
+          <button class="section-toggle ${isCollapsed ? 'collapsed' : ''}" tabindex="-1">▾</button>
+        </div>
       </div>
-      <div class="task-phase-bar"><div class="task-phase-bar-fill" style="width:${gPct}%"></div></div>`;
+      <div class="task-phase-bar"><div class="task-phase-bar-fill" style="width:${gPct}%"></div></div>
+      <div class="task-group-body ${isCollapsed ? 'collapsed' : ''}">`;
+
     items.forEach(t => {
       const isDone = t.status === 'done';
       const isIP   = t.status === 'in-progress';
@@ -3021,7 +3063,11 @@ function renderTasks() {
       const secondaryTag = tasksGroupBy === 'phase'
         ? (t.cat   ? `<span class="date-cat" style="font-size:10px">${t.cat}</span>` : '')
         : (t.phase ? `<span class="date-cat" style="font-size:10px">${t.phase}</span>` : '');
-      g += `<div class="task-row ${isDone ? 'task-done' : isIP ? 'task-in-progress' : ''}">
+      g += `<div class="task-row ${isDone ? 'task-done' : isIP ? 'task-in-progress' : ''}"
+          data-dnd-type="task" data-dnd-id="${t.id}" data-dnd-sec="${groupName}">
+        <span class="drag-handle" onpointerdown="startDrag(event,'task','${t.id}','${groupName.replace(/'/g,"\\'")}')">
+          ${GRIP}
+        </span>
         <div class="task-main">
           <div class="task-lbl">${t.label}</div>
           <div class="task-meta">
@@ -3037,18 +3083,19 @@ function renderTasks() {
         </div>
       </div>`;
     });
-    g += `</div>`;
+
+    g += `</div></div>`;
     return g;
   }
 
   groups.forEach(g => { html += renderGroup(g); });
 
-  // Items whose group value isn't in the known list
-  const ungrouped = STATE.tasks.filter(t => {
-    const val = tasksGroupBy === 'phase' ? t.phase : t.cat;
-    return val && !groups.includes(val);
-  });
-  const extraGroups = [...new Set(ungrouped.map(t => tasksGroupBy === 'phase' ? t.phase : t.cat))];
+  // Extra groups (custom or unknown)
+  const extraGroups = [...new Set(
+    visibleTasks
+      .map(t => tasksGroupBy === 'phase' ? t.phase : t.cat)
+      .filter(v => v && !groups.includes(v))
+  )];
   extraGroups.forEach(g => { html += renderGroup(g); });
 
   html += '</div>';
