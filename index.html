@@ -904,14 +904,22 @@
 
     <div class="filter-row" style="flex-wrap:wrap;gap:6px;align-items:center">
       <button class="filter-pill active" onclick="setBudgetFilter('all',this)">All</button>
-      <button class="filter-pill" onclick="setBudgetFilter('arrival',this)">Arrival month</button>
+      <button class="filter-pill" onclick="setBudgetFilter('arrival',this)">Arrival / one-time</button>
       <button class="filter-pill" onclick="setBudgetFilter('monthly',this)">Monthly ongoing</button>
       <select class="currency-select" id="currency-select" onchange="setCurrency(this.value)" title="Currency"></select>
     </div>
 
+    <div style="display:flex;gap:6px;margin-bottom:4px">
+      <button class="btn btn-sm" onclick="expandAllBudget()">Expand all</button>
+      <button class="btn btn-sm" onclick="collapseAllBudget()">Collapse all</button>
+    </div>
+
     <div id="budget-sections"></div>
 
-    <button class="btn btn-primary" onclick="openAddBudgetModal()" style="margin-top:8px">+ Add budget line</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn btn-primary" onclick="openAddBudgetModal()">+ Add item</button>
+      <button class="btn" onclick="openAddBudgetSectionModal()">+ Add category</button>
+    </div>
   </div>
 
   <!-- ===== FLIGHTS TAB ===== -->
@@ -992,7 +1000,7 @@
 <!-- ADD BUDGET MODAL -->
 <div class="modal-overlay" id="add-budget-modal">
   <div class="modal">
-    <div class="modal-title">Add budget line</div>
+    <div class="modal-title">Add budget item</div>
     <div class="form-row">
       <input class="form-input flex-1" id="new-budget-label" placeholder="Item name">
     </div>
@@ -1000,15 +1008,32 @@
       <input class="form-input flex-1" id="new-budget-note" placeholder="Note (optional)">
     </div>
     <div class="form-row">
-      <input class="form-input" id="new-budget-amount" placeholder="Amount ($)" type="number" style="width:120px">
-      <select class="form-select" id="new-budget-type">
-        <option value="arrival">Arrival month</option>
-        <option value="monthly">Monthly ongoing</option>
-      </select>
+      <input class="form-input" id="new-budget-amount" placeholder="Amount" type="number" style="width:110px">
+      <select class="form-select flex-1" id="new-budget-section"></select>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('add-budget-modal')">Cancel</button>
       <button class="btn btn-primary" onclick="confirmAddBudget()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD BUDGET SECTION MODAL -->
+<div class="modal-overlay" id="add-budget-section-modal">
+  <div class="modal">
+    <div class="modal-title">Add budget category</div>
+    <div class="form-row">
+      <input class="form-input flex-1" id="new-bsec-name" placeholder="Category name (e.g. School supplies)">
+    </div>
+    <div class="form-row">
+      <select class="form-select flex-1" id="new-bsec-type">
+        <option value="arrival">One-time / arrival cost</option>
+        <option value="monthly">Monthly ongoing cost</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-budget-section-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddBudgetSection()">Add</button>
     </div>
   </div>
 </div>
@@ -1306,11 +1331,21 @@ function setupFirebaseSync() {
 
 function applyRemoteData(data) {
   if (data.packSections !== undefined) STATE.packSections = data.packSections || [];
-  if (data.budgetItems !== undefined) STATE.budgetItems = data.budgetItems || [];
   if (data.flightLegs !== undefined) STATE.flightLegs = data.flightLegs || [];
   if (data.customsSections !== undefined) STATE.customsSections = data.customsSections || [];
 
-  // sliders removed — no slider state to apply
+  if (data.budgetSections !== undefined) {
+    STATE.budgetSections = data.budgetSections || [];
+  } else if (data.budgetItems !== undefined) {
+    // Migrate legacy flat budgetItems → budgetSections
+    const arr = data.budgetItems || [];
+    STATE.budgetSections = [
+      { id: 'arrival', title: 'Arrival month', type: 'arrival',
+        items: arr.filter(i => i.type === 'arrival').map(i => ({ id: i.id, label: i.label, note: i.note || '', amount: i.amount || 0 })) },
+      { id: 'monthly', title: 'Monthly ongoing', type: 'monthly',
+        items: arr.filter(i => i.type === 'monthly').map(i => ({ id: i.id, label: i.label, note: i.note || '', amount: i.amount || 0 })) },
+    ];
+  }
 
   renderAll();
 }
@@ -1328,7 +1363,7 @@ function saveToFirebase() {
   saveTimer = setTimeout(() => {
     const data = {
       packSections: STATE.packSections,
-      budgetItems: STATE.budgetItems,
+      budgetSections: STATE.budgetSections,
       flightLegs: STATE.flightLegs,
       customsSections: STATE.customsSections,
       lastModified: Date.now(),
@@ -1460,21 +1495,25 @@ const SANDRA_DATA = {
       { id: 'm7', label: 'Luggage tags', note: 'Label all bags with your Ithaca address', tag: 'bring', checked: false },
     ]},
   ],
-  budgetItems: [
-    { id: 'b1', label: 'Apartment setup (kitchen, bedding, hangers)', note: 'Walmart + Facebook Marketplace', type: 'arrival', amount: 400, icon: '🏠' },
-    { id: 'b2', label: 'Winter clothing', note: 'Coat, boots, thermals', type: 'arrival', amount: 300, icon: '🧥' },
-    { id: 'b3', label: 'Books & course materials', note: 'Some PDFs free; physical casebooks vary', type: 'arrival', amount: 200, icon: '📚' },
-    { id: 'b4', label: 'Toiletries & personal care restock', note: 'Skincare, haircare, pharmacy basics', type: 'arrival', amount: 150, icon: '🧴' },
-    { id: 'b5', label: 'Admin fees (SSN, printing, misc)', note: 'SSN is free; misc ~$20', type: 'arrival', amount: 20, icon: '📋' },
-    { id: 'b6', label: 'Emergency buffer', note: 'Strongly recommended — things always come up', type: 'arrival', amount: 500, icon: '🛡' },
-    { id: 'b7', label: 'Rent', note: 'Off-campus apartment; first payment due August', type: 'monthly', amount: 1100 },
-    { id: 'b8', label: 'Utilities (electricity + internet)', note: 'NYSEG + Spectrum/Verizon; may be included in rent', type: 'monthly', amount: 120 },
-    { id: 'b9', label: 'Groceries', note: 'Wegmans is best value; budget cooking helps', type: 'monthly', amount: 300 },
-    { id: 'b10', label: 'Health insurance (Cornell plan)', note: '~$300–$400/month; waivable with equivalent US coverage', type: 'monthly', amount: 350 },
-    { id: 'b11', label: 'Phone plan', note: 'T-Mobile or Mint Mobile prepaid', type: 'monthly', amount: 40 },
-    { id: 'b12', label: 'Transport', note: 'TCAT buses free with Cornell ID; occasional Uber/Lyft', type: 'monthly', amount: 30 },
-    { id: 'b13', label: 'Eating out / cafes', note: 'Restaurants and coffee shops', type: 'monthly', amount: 150 },
-    { id: 'b14', label: 'Entertainment & social', note: 'Events, trips, nights out with cohort', type: 'monthly', amount: 100 },
+  budgetSections: [
+    { id: 'arrival', title: 'Arrival month', type: 'arrival', items: [
+      { id: 'b1', label: 'Apartment setup (kitchen, bedding, hangers)', note: 'Walmart + Facebook Marketplace', amount: 400 },
+      { id: 'b2', label: 'Winter clothing', note: 'Coat, boots, thermals', amount: 300 },
+      { id: 'b3', label: 'Books & course materials', note: 'Some PDFs free; physical casebooks vary', amount: 200 },
+      { id: 'b4', label: 'Toiletries & personal care restock', note: 'Skincare, haircare, pharmacy basics', amount: 150 },
+      { id: 'b5', label: 'Admin fees (SSN, printing, misc)', note: 'SSN is free; misc ~$20', amount: 20 },
+      { id: 'b6', label: 'Emergency buffer', note: 'Strongly recommended — things always come up', amount: 500 },
+    ]},
+    { id: 'monthly', title: 'Monthly ongoing', type: 'monthly', items: [
+      { id: 'b7', label: 'Rent', note: 'Off-campus apartment; first payment due August', amount: 1100 },
+      { id: 'b8', label: 'Utilities (electricity + internet)', note: 'NYSEG + Spectrum/Verizon; may be included in rent', amount: 120 },
+      { id: 'b9', label: 'Groceries', note: 'Wegmans is best value; budget cooking helps', amount: 300 },
+      { id: 'b10', label: 'Health insurance (Cornell plan)', note: '~$300–$400/month; waivable with equivalent US coverage', amount: 350 },
+      { id: 'b11', label: 'Phone plan', note: 'T-Mobile or Mint Mobile prepaid', amount: 40 },
+      { id: 'b12', label: 'Transport', note: 'TCAT buses free with Cornell ID; occasional Uber/Lyft', amount: 30 },
+      { id: 'b13', label: 'Eating out / cafes', note: 'Restaurants and coffee shops', amount: 150 },
+      { id: 'b14', label: 'Entertainment & social', note: 'Events, trips, nights out with cohort', amount: 100 },
+    ]},
   ],
   flightLegs: [
     { id: 'fl1', type: 'flight', from: 'ACC', to: 'JFK', airline: 'Delta DL157', date: 'July 2026', note: 'Nonstop · ~11h 15m · Departs ~09:30' },
@@ -1497,7 +1536,10 @@ const BLANK_DATA = {
     { id: 'clothes', title: 'Clothing', urgent: false, items: [] },
     { id: 'misc', title: 'Miscellaneous', urgent: false, items: [] },
   ],
-  budgetItems: [],
+  budgetSections: [
+    { id: 'arrival', title: 'Arrival month', type: 'arrival', items: [] },
+    { id: 'monthly', title: 'Monthly ongoing', type: 'monthly', items: [] },
+  ],
   flightLegs: [],
   customsSections: [],
 };
@@ -1510,7 +1552,7 @@ let packFilter = 'all';
 let budgetFilter = 'all';
 let editingLegId = null;
 let collapsedSections = new Set(JSON.parse(localStorage.getItem('mw-collapsed') || '[]'));
-let collapsedBudgetGroups = new Set(JSON.parse(localStorage.getItem('mw-budget-collapsed') || '[]'));
+let collapsedBudgetSections = new Set(JSON.parse(localStorage.getItem('mw-budget-sec') || '[]'));
 
 function toggleSectionCollapse(secId) {
   if (collapsedSections.has(secId)) collapsedSections.delete(secId);
@@ -1798,11 +1840,7 @@ document.addEventListener('pointermove', e => {
   const target = under?.closest(`[data-dnd-type="${dnd.type}"]`);
   if (!target || target.dataset.dndId === dnd.id) return;
   if (dnd.type === 'item' && target.dataset.dndSec !== dnd.secId) return;
-  if (dnd.type === 'budget') {
-    const fromItem = STATE.budgetItems.find(i => i.id === dnd.id);
-    const toItem   = STATE.budgetItems.find(i => i.id === target.dataset.dndId);
-    if (fromItem?.type !== toItem?.type) return;
-  }
+  if (dnd.type === 'budget-item' && target.dataset.dndSec !== dnd.secId) return;
   const mid = target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
   target.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bottom');
 });
@@ -1882,21 +1920,19 @@ function dndDrop(type, fromId, toId, fromSec, toSec, before) {
     const sec = STATE.packSections.find(s => s.id === fromSec);
     reorder(sec.items, fromId, toId);
     saveToFirebase(); renderPacking();
-  } else if (type === 'budget') {
-    const fi = STATE.budgetItems.find(i => i.id === fromId);
-    const ti = STATE.budgetItems.find(i => i.id === toId);
-    if (fi?.type !== ti?.type) return;
-    reorder(STATE.budgetItems, fromId, toId);
+  } else if (type === 'budget-section') {
+    reorder(STATE.budgetSections, fromId, toId);
+    saveToFirebase(); renderBudget();
+  } else if (type === 'budget-item') {
+    if (fromSec !== toSec) return;
+    const sec = STATE.budgetSections.find(s => s.id === fromSec);
+    if (!sec) return;
+    reorder(sec.items, fromId, toId);
     saveToFirebase(); renderBudget();
   }
 }
 
-function toggleBudgetGroup(group) {
-  if (collapsedBudgetGroups.has(group)) collapsedBudgetGroups.delete(group);
-  else collapsedBudgetGroups.add(group);
-  localStorage.setItem('mw-budget-collapsed', JSON.stringify([...collapsedBudgetGroups]));
-  renderBudget();
-}
+
 function expandAllSections() {
   collapsedSections.clear();
   localStorage.setItem('mw-collapsed', '[]');
@@ -1921,141 +1957,198 @@ function confirmAddSection() {
 // ============================================================
 // BUDGET
 // ============================================================
+function _budgetItemsAll() {
+  return STATE.budgetSections.flatMap(s => s.items);
+}
+function _findBudgetItem(itemId) {
+  for (const sec of STATE.budgetSections) {
+    const item = sec.items.find(i => i.id === itemId);
+    if (item) return { sec, item };
+  }
+  return null;
+}
+
 function renderBudget() {
-  const visible = STATE.budgetItems.filter(i => {
-    if (budgetFilter === 'arrival') return i.type === 'arrival';
-    if (budgetFilter === 'monthly') return i.type === 'monthly';
+  const secs = STATE.budgetSections.filter(s => {
+    if (budgetFilter === 'arrival') return s.type === 'arrival';
+    if (budgetFilter === 'monthly') return s.type === 'monthly';
     return true;
   });
-  const arrivalTotal = STATE.budgetItems.filter(i=>i.type==='arrival').reduce((a,i)=>a+i.amount,0);
-  const monthlyTotal = STATE.budgetItems.filter(i=>i.type==='monthly').reduce((a,i)=>a+i.amount,0);
+  const arrivalTotal = STATE.budgetSections.filter(s=>s.type==='arrival').reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.amount||0),0),0);
+  const monthlyTotal = STATE.budgetSections.filter(s=>s.type==='monthly').reduce((a,s)=>a+s.items.reduce((b,i)=>b+(i.amount||0),0),0);
   const firstMonthTotal = arrivalTotal + monthlyTotal;
-  const yearOneTotal = arrivalTotal + (monthlyTotal * 12);
+
   document.getElementById('budget-stats').innerHTML = `
     <div class="stat-card"><div class="stat-num">${fmt(arrivalTotal)}</div><div class="stat-label">One-time costs</div></div>
     <div class="stat-card"><div class="stat-num">${fmt(monthlyTotal)}</div><div class="stat-label">Per month</div></div>
     <div class="stat-card" title="One-time costs + first month of ongoing expenses"><div class="stat-num">${fmt(firstMonthTotal)}</div><div class="stat-label">First month total</div></div>
   `;
-  // Keep currency selector in sync
   const sel = document.getElementById('currency-select');
   if (sel && sel.value !== selectedCurrency) sel.value = selectedCurrency;
-  const arrivalItems = visible.filter(i => i.type === 'arrival');
-  const monthlyItems = visible.filter(i => i.type === 'monthly');
-  let html = '';
-  const arrivalCollapsed = collapsedBudgetGroups.has('arrival');
-  const monthlyCollapsed = collapsedBudgetGroups.has('monthly');
-  if (arrivalItems.length) {
-    html += `<div class="section-header" style="cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center" onclick="toggleBudgetGroup('arrival')">
-      <span>Arrival month — one-time costs</span>
-      <span style="font-size:11px;opacity:0.6">${arrivalCollapsed ? '▸' : '▾'}</span>
-    </div>`;
-    if (!arrivalCollapsed) {
-      html += '<div class="card">';
-      html += arrivalItems.map(item => budgetRowHTML(item)).join('');
-      html += '</div>';
-    }
+
+  if (!secs.length) {
+    document.getElementById('budget-sections').innerHTML = '<div class="empty-state"><p style="font-weight:500">No budget items yet</p><p style="font-size:12px;color:var(--text-muted);margin-top:4px">Add a category then add items to it.</p></div>';
+    return;
   }
-  if (monthlyItems.length) {
-    html += `<div class="section-header" style="cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center" onclick="toggleBudgetGroup('monthly')">
-      <span>Monthly ongoing</span>
-      <span style="font-size:11px;opacity:0.6">${monthlyCollapsed ? '▸' : '▾'}</span>
-    </div>`;
-    if (!monthlyCollapsed) {
-      html += '<div class="card">';
-      html += monthlyItems.map(item => budgetRowHTML(item)).join('');
-      html += '</div>';
-    }
-  }
-  if (!visible.length) html = '<div class="empty-state"><div class="icon" style="font-size:32px;margin-bottom:8px">💰</div><p>No items. Add a budget line to get started.</p></div>';
-  document.getElementById('budget-sections').innerHTML = html;
+
+  const totalSecs = STATE.budgetSections.length;
+  document.getElementById('budget-sections').innerHTML = secs.map((sec, secIdx) => {
+    const isCollapsed = collapsedBudgetSections.has(sec.id);
+    const secTotal = sec.items.reduce((a, i) => a + (i.amount || 0), 0);
+    const globalIdx = STATE.budgetSections.findIndex(s => s.id === sec.id);
+    return `
+      <div class="card" data-dnd-type="budget-section" data-dnd-id="${sec.id}">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:2px">
+            <span class="drag-handle" onpointerdown="startDrag(event,'budget-section','${sec.id}',null)" title="Drag to reorder">${GRIP}</span>
+            <div class="card-title" style="cursor:pointer;user-select:none" onclick="toggleBudgetSection('${sec.id}')">
+              <button class="section-toggle ${isCollapsed ? 'collapsed' : ''}" tabindex="-1">▾</button>
+              ${sec.title}
+              <span class="badge ${sec.type==='arrival' ? 'badge-terra' : 'badge-amber'}" style="cursor:pointer" onclick="event.stopPropagation();toggleBudgetSectionType('${sec.id}')" title="Click to switch type">${sec.type==='arrival' ? 'one-time' : 'monthly'}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:11px;color:var(--text-muted)">${fmt(secTotal)}</span>
+            <button class="btn btn-sm" onclick="openAddBudgetItemToSection('${sec.id}')">+ Add</button>
+            <span style="width:1px;height:20px;background:var(--border-light);display:inline-block;margin:0 2px"></span>
+            <button class="btn btn-sm" onclick="deleteBudgetSection('${sec.id}')" style="color:var(--text-muted);border-color:transparent;background:transparent;font-size:11px">Delete</button>
+          </div>
+        </div>
+        <div class="section-body ${isCollapsed ? 'collapsed' : ''}">
+          ${sec.items.length === 0
+            ? '<div style="padding:10px 0 4px;color:var(--text-muted);font-size:12px">Empty — click + Add to add an item.</div>'
+            : sec.items.map(item => budgetItemHTML(sec.id, item)).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
-function budgetRowHTML(item) {
-  return `<div class="budget-row" data-dnd-type="budget" data-dnd-id="${item.id}">
-    <span class="drag-handle" onpointerdown="startDrag(event,'budget','${item.id}',null)" title="Drag to reorder">${GRIP}</span>
+
+function budgetItemHTML(secId, item) {
+  return `<div class="budget-row" data-dnd-type="budget-item" data-dnd-id="${item.id}" data-dnd-sec="${secId}">
+    <span class="drag-handle" onpointerdown="startDrag(event,'budget-item','${item.id}','${secId}')" title="Drag to reorder">${GRIP}</span>
     <div class="budget-info" style="flex:1;min-width:0">
-      <div class="budget-label" ${ceAttr}
-        onblur="editBudgetLabel('${item.id}',this.textContent)"
-        >${item.label}</div>
-      <div class="budget-note" ${ceAttr}
-        onblur="editBudgetNote('${item.id}',this.textContent)"
-        style="outline:none;cursor:text"
-        >${item.note || ''}</div>
+      <div class="budget-label" ${ceAttr} onblur="editBudgetLabel('${secId}','${item.id}',this.textContent)">${item.label}</div>
+      <div class="budget-note" ${ceAttr} onblur="editBudgetNote('${secId}','${item.id}',this.textContent)" style="outline:none;cursor:text">${item.note || ''}</div>
     </div>
-    <span class="badge type-toggle ${item.type === 'arrival' ? 'badge-terra' : 'badge-amber'}"
-      onclick="toggleBudgetType('${item.id}')"
-      title="Click to switch between arrival / monthly"
-      >${item.type === 'arrival' ? 'arrival' : 'monthly'}</span>
-    <span class="budget-amount editable-amount" onclick="editBudgetAmount(this,'${item.id}')" title="Click to edit">${fmt(item.amount)}</span>
+    <span class="budget-amount editable-amount" onclick="editBudgetAmount(this,'${secId}','${item.id}')" title="Click to edit">${fmt(item.amount||0)}</span>
     <div class="pack-actions" style="display:flex;gap:4px">
-      <button class="btn btn-sm btn-danger" onclick="deleteBudgetItem('${item.id}')">×</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteBudgetItem('${secId}','${item.id}')">×</button>
     </div>
   </div>`;
 }
+
+function toggleBudgetSection(secId) {
+  if (collapsedBudgetSections.has(secId)) collapsedBudgetSections.delete(secId);
+  else collapsedBudgetSections.add(secId);
+  localStorage.setItem('mw-budget-sec', JSON.stringify([...collapsedBudgetSections]));
+  renderBudget();
+}
+function expandAllBudget() {
+  collapsedBudgetSections.clear();
+  localStorage.setItem('mw-budget-sec', '[]');
+  renderBudget();
+}
+function collapseAllBudget() {
+  STATE.budgetSections.forEach(s => collapsedBudgetSections.add(s.id));
+  localStorage.setItem('mw-budget-sec', JSON.stringify([...collapsedBudgetSections]));
+  renderBudget();
+}
+function toggleBudgetSectionType(secId) {
+  const sec = STATE.budgetSections.find(s => s.id === secId);
+  if (!sec) return;
+  sec.type = sec.type === 'arrival' ? 'monthly' : 'arrival';
+  saveToFirebase(); renderBudget();
+}
+
 function setBudgetFilter(f, btn) {
   budgetFilter = f;
   document.querySelectorAll('#tab-budget .filter-pill').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderBudget();
 }
-function openAddBudgetModal() { openModal('add-budget-modal'); }
+
+let _addingToBudgetSec = null;
+function openAddBudgetModal() {
+  _addingToBudgetSec = null;
+  const sel = document.getElementById('new-budget-section');
+  sel.innerHTML = STATE.budgetSections.map(s => `<option value="${s.id}">${s.title}</option>`).join('');
+  openModal('add-budget-modal');
+}
+function openAddBudgetItemToSection(secId) {
+  _addingToBudgetSec = secId;
+  const sel = document.getElementById('new-budget-section');
+  sel.innerHTML = STATE.budgetSections.map(s => `<option value="${s.id}" ${s.id===secId?'selected':''}>${s.title}</option>`).join('');
+  openModal('add-budget-modal');
+}
 function confirmAddBudget() {
   const label = document.getElementById('new-budget-label').value.trim();
   const note = document.getElementById('new-budget-note').value.trim();
-  const amount = parseInt(document.getElementById('new-budget-amount').value) || 0;
-  const type = document.getElementById('new-budget-type').value;
+  const amount = parseFloat(document.getElementById('new-budget-amount').value) || 0;
+  const secId = document.getElementById('new-budget-section').value;
   if (!label) return;
-  STATE.budgetItems.push({ id: uid(), label, note, type, amount });
+  const sec = STATE.budgetSections.find(s => s.id === secId);
+  if (!sec) return;
+  sec.items.push({ id: uid(), label, note, amount });
   closeModal('add-budget-modal');
   ['new-budget-label','new-budget-note','new-budget-amount'].forEach(id => document.getElementById(id).value = '');
-  saveToFirebase();
-  renderBudget(); showToast('Budget line added');
+  saveToFirebase(); renderBudget(); showToast('Item added');
 }
-function deleteBudgetItem(id) {
-  const idx = STATE.budgetItems.findIndex(i => i.id === id);
-  const item = JSON.parse(JSON.stringify(STATE.budgetItems[idx]));
-  STATE.budgetItems.splice(idx, 1);
+
+function openAddBudgetSectionModal() { openModal('add-budget-section-modal'); }
+function confirmAddBudgetSection() {
+  const name = document.getElementById('new-bsec-name').value.trim();
+  const type = document.getElementById('new-bsec-type').value;
+  if (!name) return;
+  STATE.budgetSections.push({ id: uid(), title: name, type, items: [] });
+  closeModal('add-budget-section-modal');
+  document.getElementById('new-bsec-name').value = '';
+  saveToFirebase(); renderBudget(); showToast('Category added');
+}
+
+function deleteBudgetSection(secId) {
+  const idx = STATE.budgetSections.findIndex(s => s.id === secId);
+  const sec = JSON.parse(JSON.stringify(STATE.budgetSections[idx]));
+  STATE.budgetSections.splice(idx, 1);
   renderBudget();
-  softDelete(`"${item.label}" removed`, () => { STATE.budgetItems.splice(idx, 0, item); renderBudget(); });
+  softDelete(`"${sec.title}" removed`, () => { STATE.budgetSections.splice(idx, 0, sec); renderBudget(); });
 }
-function editBudgetLabel(itemId, val) {
-  const item = STATE.budgetItems.find(i => i.id === itemId);
+
+function deleteBudgetItem(secId, itemId) {
+  const sec = STATE.budgetSections.find(s => s.id === secId);
+  const idx = sec.items.findIndex(i => i.id === itemId);
+  const item = JSON.parse(JSON.stringify(sec.items[idx]));
+  sec.items.splice(idx, 1);
+  renderBudget();
+  softDelete(`"${item.label}" removed`, () => { sec.items.splice(idx, 0, item); renderBudget(); });
+}
+function editBudgetLabel(secId, itemId, val) {
+  const sec = STATE.budgetSections.find(s => s.id === secId);
+  const item = sec?.items.find(i => i.id === itemId);
   if (item && val.trim()) { item.label = val.trim(); saveToFirebase(); }
 }
-function editBudgetNote(itemId, val) {
-  const item = STATE.budgetItems.find(i => i.id === itemId);
+function editBudgetNote(secId, itemId, val) {
+  const sec = STATE.budgetSections.find(s => s.id === secId);
+  const item = sec?.items.find(i => i.id === itemId);
   if (item) { item.note = val.trim(); saveToFirebase(); }
 }
-function toggleBudgetType(id) {
-  const item = STATE.budgetItems.find(i => i.id === id);
-  if (!item) return;
-  item.type = item.type === 'arrival' ? 'monthly' : 'arrival';
-  saveToFirebase(); renderBudget();
-}
-function editBudgetAmount(el, itemId) {
-  const currentVal = (STATE.budgetItems.find(i => i.id === itemId) || {}).amount || 0;
-
+function editBudgetAmount(el, secId, itemId) {
+  const sec = STATE.budgetSections.find(s => s.id === secId);
+  const item = sec?.items.find(i => i.id === itemId);
+  const currentVal = item?.amount || 0;
   const input = document.createElement('input');
-  input.type = 'number';
-  input.value = currentVal;
-  input.className = 'amount-input';
-  input.min = 0;
-
+  input.type = 'number'; input.value = currentVal;
+  input.className = 'amount-input'; input.min = 0;
   const save = () => {
-    const val = Math.max(0, parseInt(input.value) || 0);
-    const item = STATE.budgetItems.find(i => i.id === itemId);
+    const val = Math.max(0, parseFloat(input.value) || 0);
     if (item) { item.amount = val; saveToFirebase(); }
     renderBudget();
   };
-
   input.addEventListener('blur', save);
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') input.blur();
     if (e.key === 'Escape') { input.value = currentVal; input.blur(); }
   });
-
-  el.replaceWith(input);
-  input.focus();
-  input.select();
+  el.replaceWith(input); input.focus(); input.select();
 }
 
 // ============================================================
