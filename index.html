@@ -2888,7 +2888,17 @@ function renderFlights() {
   {
     const quotes = [...(STATE.fareQuotes || [])].sort((a, b) => new Date(b.dateSeen) - new Date(a.dateSeen));
     const fs = STATE.flightSearch || {};
-    const defRoute = fs.origin && fs.dest ? `${fs.origin} → ${fs.dest}` : '';
+    const defRoute = (() => {
+      if (fs.tripType === 'multi-city') {
+        const legs = (fs.multiCityLegs || []).filter(l => l.from && l.to);
+        if (legs.length) return [legs[0].from, ...legs.map(l => l.to)].join(' → ');
+      }
+      return fs.origin && fs.dest ? `${fs.origin} → ${fs.dest}` : '';
+    })();
+    const defDepart = (() => {
+      if (fs.tripType === 'multi-city') return (fs.multiCityLegs || [])[0]?.depart || '';
+      return fs.departDate || '';
+    })();
 
     const fqLines = [`<div class="card" style="margin-top:16px">
       <div class="card-header" style="margin-bottom:4px">
@@ -2917,7 +2927,8 @@ function renderFlights() {
           <div class="fare-price">${q.currency||'$'}${Number(q.price).toLocaleString()}</div>
           <div class="fare-meta">
             ${q.airline?`<span style="font-weight:500">${q.airline}</span> · `:''}${q.route||''}
-            <br><span style="color:var(--text-muted)">${q.dateSeen||''}</span>${trend}${linkHtml}
+            ${q.departDate ? `<span style="color:var(--text-secondary)"> · departs ${q.departDate}</span>` : ''}
+            <br><span style="color:var(--text-muted)">logged ${q.dateSeen||''}</span>${trend}${linkHtml}
           </div>
           <button class="btn btn-sm btn-primary" onclick="useFareQuote('${q.id}')" style="flex-shrink:0;font-size:11px">→ Use this</button>
           <button class="btn btn-sm btn-icon" onclick="deleteFareQuote('${q.id}')" title="Remove" style="flex-shrink:0">×</button>
@@ -2928,11 +2939,12 @@ function renderFlights() {
     }
 
     fqLines.push(`<div class="fare-add-row">
-      <input class="form-input" id="fq-airline"  placeholder="Airline" style="width:100px">
-      <input class="form-input" id="fq-route"    placeholder="Route" value="${defRoute}" style="width:110px">
-      <input class="form-input" id="fq-price"    placeholder="Price" type="number" min="0" style="width:80px">
-      <input class="form-input" id="fq-currency" placeholder="$" style="width:46px">
-      <input class="form-input" id="fq-link"     placeholder="Link (optional)" style="flex:1;min-width:70px">
+      <input class="form-input" id="fq-airline"  placeholder="Airline" style="width:90px">
+      <input class="form-input" id="fq-route"    placeholder="Route" value="${defRoute}" style="width:120px">
+      <input class="form-input" id="fq-depart"   type="date" value="${defDepart}" title="Departure date" style="width:130px">
+      <input class="form-input" id="fq-price"    placeholder="Price" type="number" min="0" style="width:76px">
+      <input class="form-input" id="fq-currency" placeholder="$" style="width:42px">
+      <input class="form-input" id="fq-link"     placeholder="Link (optional)" style="flex:1;min-width:60px">
       <button class="btn btn-sm btn-primary" onclick="addFareQuote()">Save</button>
     </div>`);
     fqLines.push('</div>');
@@ -3214,33 +3226,26 @@ function chainMCLeg(idx) {
   if (nextFrom && toVal) nextFrom.value = toVal;
 }
 function buildFlightSearchUrl(engine, fs) {
-  const pax = fs.passengers || 1;
-  const cls = fs.cabinClass || 'economy';
-  const tt  = fs.tripType || 'one-way';
+  const pax    = fs.passengers || 1;
+  const cls    = fs.cabinClass || 'economy';
+  const tt     = fs.tripType || 'one-way';
   const sClass = { economy:'economy', premium:'premiumeconomy', business:'business', first:'first' }[cls] || 'economy';
 
   if (tt === 'multi-city') {
     const legs = (fs.multiCityLegs || []).filter(l => l.from && l.to && l.depart);
-    if (!legs.length) return engine === 'google' ? 'https://www.google.com/travel/flights' : engine === 'kayak' ? 'https://www.kayak.com' : 'https://www.skyscanner.net';
-    if (engine === 'google') {
-      const q = legs.map(l => `${l.from} to ${l.to} on ${l.depart}`).join(', ');
-      return `https://www.google.com/travel/flights?q=${encodeURIComponent('multi-city flights ' + q)}`;
-    }
-    if (engine === 'kayak') {
-      const path = legs.map(l => `${l.from}-${l.to}/${l.depart}`).join('/');
+    if (engine === 'kayak' && legs.length) {
+      const path = legs.map(l => `${l.from.toUpperCase()}-${l.to.toUpperCase()}/${l.depart}`).join('/');
       return `https://www.kayak.com/flights/${path}/${pax}adults/${cls}`;
     }
-    if (engine === 'skyscanner') {
-      // Skyscanner doesn't support multi-city via URL params; link to their multi-city page
-      return `https://www.skyscanner.net/flights/multicity/?adults=${pax}&cabinclass=${sClass}`;
-    }
+    // Google and Skyscanner don't support multi-city via URL — open base and show toast
+    return engine === 'google' ? 'https://www.google.com/travel/flights' : 'https://www.skyscanner.net';
   }
 
-  const o   = (fs.origin || '').toUpperCase();
-  const d   = (fs.dest   || '').toUpperCase();
-  const dep = fs.departDate || '';
-  const ret = fs.returnDate || '';
-  const rt  = tt === 'round-trip';
+  const o      = (fs.origin || '').toUpperCase();
+  const d      = (fs.dest   || '').toUpperCase();
+  const dep    = fs.departDate || '';
+  const ret    = fs.returnDate || '';
+  const rt     = tt === 'round-trip';
   const depYMD = dep.replace(/-/g, '');
   const retYMD = ret.replace(/-/g, '');
 
@@ -3256,7 +3261,9 @@ function buildFlightSearchUrl(engine, fs) {
   }
   if (engine === 'skyscanner') {
     if (!o || !d || !dep) return 'https://www.skyscanner.net';
-    const path = rt && retYMD ? `${o.toLowerCase()}/${d.toLowerCase()}/${depYMD}/${retYMD}/` : `${o.toLowerCase()}/${d.toLowerCase()}/${depYMD}/`;
+    const path = rt && retYMD
+      ? `${o.toLowerCase()}/${d.toLowerCase()}/${depYMD}/${retYMD}/`
+      : `${o.toLowerCase()}/${d.toLowerCase()}/${depYMD}/`;
     return `https://www.skyscanner.net/transport/flights/${path}?adults=${pax}&cabinclass=${sClass}`;
   }
   return '#';
@@ -3264,8 +3271,15 @@ function buildFlightSearchUrl(engine, fs) {
 function openSearchEngine(engine) {
   saveFlightSearchInputs();
   saveToFirebase();
-  const url = buildFlightSearchUrl(engine, STATE.flightSearch);
+  const fs  = STATE.flightSearch;
+  const tt  = fs.tripType || 'one-way';
+  const url = buildFlightSearchUrl(engine, fs);
   window.open(url, '_blank', 'noopener,noreferrer');
+  // Warn when the engine can't pre-fill multi-city — Kayak handles it natively
+  if (tt === 'multi-city' && engine !== 'kayak') {
+    const name = engine === 'google' ? 'Google Flights' : 'Skyscanner';
+    showToast(`${name} opened — select Multi-city on their site and enter your legs`);
+  }
 }
 function useFareQuote(id) {
   const q = (STATE.fareQuotes || []).find(f => f.id === id);
@@ -3288,13 +3302,14 @@ function addFareQuote() {
   const price = parseFloat(document.getElementById('fq-price')?.value);
   if (!price || isNaN(price)) { showToast('Enter a price first'); return; }
   const quote = {
-    id:       uid(),
-    airline:  document.getElementById('fq-airline')?.value.trim()   || '',
-    route:    document.getElementById('fq-route')?.value.trim()     || '',
+    id:         uid(),
+    airline:    document.getElementById('fq-airline')?.value.trim()  || '',
+    route:      document.getElementById('fq-route')?.value.trim()    || '',
+    departDate: document.getElementById('fq-depart')?.value          || '',
     price,
-    currency: document.getElementById('fq-currency')?.value.trim()  || '$',
-    link:     document.getElementById('fq-link')?.value.trim()      || '',
-    dateSeen: new Date().toISOString().slice(0, 10),
+    currency:   document.getElementById('fq-currency')?.value.trim() || '$',
+    link:       document.getElementById('fq-link')?.value.trim()     || '',
+    dateSeen:   new Date().toISOString().slice(0, 10),
   };
   STATE.fareQuotes = STATE.fareQuotes || [];
   STATE.fareQuotes.push(quote);
