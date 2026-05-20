@@ -1604,9 +1604,29 @@ function applyRemoteData(data) {
       }
     }
     if (injected) setTimeout(saveToFirebase, 200);
+    // Normalize packing labels that changed in seed data
+    const plMigrations = {
+      'Cornell admission letter': 'University admission letter',
+      'Proof of financial support': 'Proof of funds / scholarship letter',
+    };
+    let plChanged = false;
+    STATE.packSections.forEach(s => {
+      s.items.forEach(i => {
+        if (plMigrations[i.label]) { i.label = plMigrations[i.label]; plChanged = true; }
+      });
+    });
+    if (plChanged) setTimeout(saveToFirebase, 200);
   }
   if (data.flightLegs !== undefined) STATE.flightLegs = data.flightLegs || [];
-  if (data.flightChecklist !== undefined) STATE.flightChecklist = data.flightChecklist || [];
+  if (data.flightChecklist !== undefined) {
+    STATE.flightChecklist = data.flightChecklist || [];
+    const clMigrations = {
+      'Passport (valid 6+ months beyond program end)': 'Passport (valid 6+ months)',
+      'Bank notified of international travel': 'Notify home bank of international travel',
+      'US phone plan researched (Mint Mobile, T-Mobile, etc.)': 'Research US phone plans (Mint Mobile, T-Mobile)',
+    };
+    STATE.flightChecklist = STATE.flightChecklist.map(i => ({ ...i, label: clMigrations[i.label] || i.label }));
+  }
   if (data.customsSections !== undefined) STATE.customsSections = data.customsSections || [];
 
   if (data.taskPhases !== undefined) STATE.taskPhases = data.taskPhases || ['Before you leave', 'First week', 'First month'];
@@ -1709,8 +1729,8 @@ const SANDRA_DATA = {
       { id: 'd2', label: 'F-1 student visa', note: 'Stamped in your passport', tag: 'bring', checked: false },
       { id: 'd3', label: 'I-20 form from Cornell', note: 'Original required at US customs', tag: 'bring', checked: false },
       { id: 'd4', label: 'SEVIS fee payment receipt', note: 'Print and carry a copy', tag: 'bring', checked: false },
-      { id: 'd5', label: 'Cornell admission letter', note: 'Official letter, not email', tag: 'bring', checked: false },
-      { id: 'd6', label: 'Proof of financial support', note: 'Bank statements or scholarship letter', tag: 'bring', checked: false },
+      { id: 'd5', label: 'University admission letter', note: 'Official letter, not email', tag: 'bring', checked: false },
+      { id: 'd6', label: 'Proof of funds / scholarship letter', note: 'Bank statements or scholarship letter', tag: 'bring', checked: false },
       { id: 'd7', label: 'Apartment lease agreement', note: 'Printed + saved offline on phone', tag: 'bring', checked: false },
       { id: 'd8', label: 'Undergraduate transcripts', note: 'Official sealed copies', tag: 'bring', checked: false },
       { id: 'd9', label: 'Immunisation records', note: 'Cornell requires MMR, meningitis proof', tag: 'bring', checked: false },
@@ -1854,7 +1874,7 @@ const SANDRA_DATA = {
     { id: 'fl2', type: 'flight', from: 'JFK', to: 'ITH', airline: 'Delta', depart: '2026-07-18T09:00', arrive: '2026-07-18T10:20', note: 'Regional jet' },
   ],
   flightChecklist: [
-    { id: 'fc1',  label: 'Passport (valid 6+ months beyond program end)', cat: 'Documents', checked: false },
+    { id: 'fc1',  label: 'Passport (valid 6+ months)', cat: 'Documents', checked: false },
     { id: 'fc2',  label: 'F-1 visa stamp + I-20 form (original — never check this)', cat: 'Documents', checked: false },
     { id: 'fc3',  label: 'University admission letter', cat: 'Documents', checked: false },
     { id: 'fc4',  label: 'Proof of funds / scholarship letter', cat: 'Documents', checked: false },
@@ -1862,8 +1882,8 @@ const SANDRA_DATA = {
     { id: 'fc6',  label: 'Arrival address written on paper', cat: 'Documents', checked: false },
     { id: 'fc7',  label: 'Online check-in completed (24h before departure)', cat: 'Day of travel', checked: false },
     { id: 'fc8',  label: 'Luggage weight within airline limits', cat: 'Day of travel', checked: false },
-    { id: 'fc9',  label: 'Bank notified of international travel', cat: 'Day of travel', checked: false },
-    { id: 'fc10', label: 'US phone plan researched (Mint Mobile, T-Mobile, etc.)', cat: 'Day of travel', checked: false },
+    { id: 'fc9',  label: 'Notify home bank of international travel', cat: 'Day of travel', checked: false },
+    { id: 'fc10', label: 'Research US phone plans (Mint Mobile, T-Mobile)', cat: 'Day of travel', checked: false },
     { id: 'fc11', label: 'USD cash for arrival ($50–100)', cat: 'Day of travel', checked: false },
   ],
   taskPhases: ['Before you leave', 'First week', 'First month'],
@@ -1919,7 +1939,7 @@ const BLANK_DATA = {
   tasks: [],
   flightLegs: [],
   flightChecklist: [
-    { id: 'fc1',  label: 'Passport (valid 6+ months beyond program end)', cat: 'Documents', checked: false },
+    { id: 'fc1',  label: 'Passport (valid 6+ months)', cat: 'Documents', checked: false },
     { id: 'fc2',  label: 'Visa + I-20 form (original — never check this)', cat: 'Documents', checked: false },
     { id: 'fc3',  label: 'University admission letter', cat: 'Documents', checked: false },
     { id: 'fc4',  label: 'Proof of funds / scholarship letter', cat: 'Documents', checked: false },
@@ -2164,6 +2184,7 @@ function togglePackItem(secId, itemId) {
   item.checked = !item.checked;
   saveToFirebase();
   renderPacking();
+  syncChecklistFromPacking(item.label, item.checked);
   renderFlights();
 }
 function togglePackTag(secId, itemId) {
@@ -2695,76 +2716,82 @@ function renderFlights() {
     html.push('<div class="empty-state"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px;color:var(--text-muted)"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19.5 2.5c-1.5-1.5-3.5-1.5-5 0L11 6 2.8 3.2 1.4 4.6 8 11.1l-3.5 3.4H2l-1 1 3 1 1 3 1-1V16l3.5-3.4z"/></svg><p style="font-weight:500">No legs yet</p><p style="font-size:12px;color:var(--text-muted);margin-top:4px">Add your flights and stopovers to build your full journey.</p></div>');
   }
 
-  // ── 3. PRE-DEPARTURE CHECKLIST ────────────────────────────────
-  const cats = [...new Set(STATE.flightChecklist.map(i => i.cat))];
-  const done = STATE.flightChecklist.filter(i => i.checked).length;
-  const total = STATE.flightChecklist.length;
-  const pct = total ? Math.round(done / total * 100) : 0;
+  // ── 3. PRE-DEPARTURE CHECKLIST (Documents + Day of travel + Carry-on essentials) ──
+  const coItems = STATE.packSections.flatMap(s =>
+    s.items.filter(i => i.carryOn).map(i => ({ ...i, secId: s.id, secTitle: s.title }))
+  );
+  const coLabels = new Set(coItems.map(i => i.label.toLowerCase()));
+  const suggestions = CARRY_ON_SUGGESTIONS.filter(s => !coLabels.has(s.label.toLowerCase()));
+
+  const clDone  = STATE.flightChecklist.filter(i => i.checked).length;
+  const coDone  = coItems.filter(i => i.checked).length;
+  const pfTotal = STATE.flightChecklist.length + coItems.length;
+  const pfDone  = clDone + coDone;
+  const pct     = pfTotal ? Math.round(pfDone / pfTotal * 100) : 0;
+
   const pfLines = [`<div class="card" style="margin-top:16px">
     <div class="card-header" style="margin-bottom:12px">
       <div class="card-title">Pre-departure checklist</div>
-      <span style="font-size:12px;color:${pct === 100 ? 'var(--success)' : 'var(--text-muted)'}">${done}/${total} done</span>
+      <span style="font-size:12px;color:${pct === 100 ? 'var(--success)' : 'var(--text-muted)'}">${pfDone}/${pfTotal} done</span>
     </div>
     <div style="height:4px;background:var(--border-light);border-radius:2px;margin-bottom:14px;overflow:hidden">
       <div style="height:100%;width:${pct}%;background:var(--terracotta);border-radius:2px;transition:width 0.3s"></div>
     </div>`];
-  cats.forEach(cat => {
-    pfLines.push(`<div class="pf-cat">${cat}</div>`);
-    STATE.flightChecklist.filter(i => i.cat === cat).forEach(item => {
-      pfLines.push(`<div class="pf-row ${item.checked ? 'pf-done' : ''}">
-        <input type="checkbox" id="pf-${item.id}" ${item.checked ? 'checked' : ''} onchange="checkPfItem('${item.id}',this.checked)">
-        <label class="pf-lbl" for="pf-${item.id}">${item.label}</label>
-        <button class="btn btn-sm btn-icon pf-del" onclick="deletePfItem('${item.id}')" title="Remove">×</button>
-      </div>`);
-    });
+
+  // — Documents —
+  pfLines.push(`<div class="pf-cat">Documents</div>`);
+  STATE.flightChecklist.filter(i => i.cat === 'Documents').forEach(item => {
+    pfLines.push(`<div class="pf-row ${item.checked ? 'pf-done' : ''}">
+      <input type="checkbox" id="pf-${item.id}" ${item.checked ? 'checked' : ''} onchange="checkPfItem('${item.id}',this.checked)">
+      <label class="pf-lbl" for="pf-${item.id}">${item.label}</label>
+      <button class="btn btn-sm btn-icon pf-del" onclick="deletePfItem('${item.id}')" title="Remove">×</button>
+    </div>`);
   });
+
+  // — Day of travel —
+  pfLines.push(`<div class="pf-cat" style="margin-top:10px">Day of travel</div>`);
+  STATE.flightChecklist.filter(i => i.cat === 'Day of travel').forEach(item => {
+    pfLines.push(`<div class="pf-row ${item.checked ? 'pf-done' : ''}">
+      <input type="checkbox" id="pf-${item.id}" ${item.checked ? 'checked' : ''} onchange="checkPfItem('${item.id}',this.checked)">
+      <label class="pf-lbl" for="pf-${item.id}">${item.label}</label>
+      <button class="btn btn-sm btn-icon pf-del" onclick="deletePfItem('${item.id}')" title="Remove">×</button>
+    </div>`);
+  });
+
+  // add-item row for Documents / Day of travel
   pfLines.push(`<div class="pf-add-row">
     <input class="form-input flex-1" id="pf-new-label" placeholder="Add a custom item...">
     <select class="form-select" id="pf-new-cat" style="width:auto">
-      ${cats.map(c => `<option value="${c}">${c}</option>`).join('')}
+      <option value="Documents">Documents</option>
+      <option value="Day of travel">Day of travel</option>
     </select>
     <button class="btn btn-sm btn-primary" onclick="addPfItem()">Add</button>
   </div>`);
-  pfLines.push('</div>');
-  html.push(pfLines.join(''));
 
-  // ── 4. CARRY-ON SUMMARY ────────────────────────────────────────
-  const coItems = STATE.packSections.flatMap(s =>
-    s.items.filter(i => i.carryOn).map(i => ({ ...i, secId: s.id, secTitle: s.title }))
-  );
-  // Filter suggestions to exclude labels already in the carry-on list
-  const coLabels = new Set(coItems.map(i => i.label.toLowerCase()));
-  const suggestions = CARRY_ON_SUGGESTIONS.filter(s => !coLabels.has(s.label.toLowerCase()));
-
-  const coLines = [`<div class="card" style="margin-top:16px">
-    <div class="card-header" style="margin-bottom:12px">
-      <div class="card-title">Carry-on summary</div>
-      <span style="font-size:12px;color:var(--text-muted)">from your packing list</span>
-    </div>`];
-
+  // — Carry-on essentials —
+  pfLines.push(`<div class="pf-cat" style="margin-top:10px">Carry-on essentials</div>`);
   if (!coItems.length) {
-    coLines.push('<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:4px 0">No items marked as carry-on yet. Use the suggestions below, or go to Packing and tap ✈ on any item.</div>');
+    pfLines.push(`<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:4px 0 8px">No items marked as carry-on yet. Use the suggestions below or tap ✈ on any packing item.</div>`);
   } else {
-    const coDone = coItems.filter(i => i.checked).length;
-    coLines.push(`<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">${coDone}/${coItems.length} packed</div>`);
     coItems.forEach(item => {
-      coLines.push(`<div class="co-item ${item.checked ? 'is-done' : ''}">
-        <div class="pack-check ${item.checked ? 'checked' : ''}" onclick="togglePackItem('${item.secId}','${item.id}')" style="flex-shrink:0"></div>
-        <span style="flex:1;${item.checked ? 'text-decoration:line-through;color:var(--text-muted)' : ''}">${item.label}</span>
-        <span class="co-sec-label">${item.secTitle}</span>
+      pfLines.push(`<div class="pf-row ${item.checked ? 'pf-done' : ''}">
+        <div class="pack-check ${item.checked ? 'checked' : ''}" onclick="togglePackItem('${item.secId}','${item.id}')" style="flex-shrink:0;cursor:pointer"></div>
+        <span class="pf-lbl" style="${item.checked ? 'text-decoration:line-through;color:var(--text-muted)' : ''}">${item.label}</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:4px">✈</span>
       </div>`);
     });
   }
 
+  // Suggestions collapsible
   if (suggestions.length) {
-    coLines.push(`<button class="co-suggest-toggle ${coSuggestionsOpen ? 'open' : ''}" onclick="toggleCoSuggestions()">
+    pfLines.push(`<button class="co-suggest-toggle ${coSuggestionsOpen ? 'open' : ''}" onclick="toggleCoSuggestions()">
       <span class="chevron">▾</span>
       <span>${coSuggestionsOpen ? 'Hide' : 'Show'} suggested carry-on items (${suggestions.length})</span>
     </button>`);
     if (coSuggestionsOpen) {
-      coLines.push('<div class="co-suggest-list">');
+      pfLines.push('<div class="co-suggest-list">');
       suggestions.forEach((s, i) => {
-        coLines.push(`<div class="co-suggest-item">
+        pfLines.push(`<div class="co-suggest-item">
           <div style="flex:1">
             <div>${s.label}</div>
             ${s.note ? `<div style="font-size:11px;color:var(--text-muted)">${s.note}</div>` : ''}
@@ -2772,12 +2799,12 @@ function renderFlights() {
           <button class="btn btn-sm btn-primary" onclick="addCarryOnSuggestion(${i})" style="flex-shrink:0">+ Add</button>
         </div>`);
       });
-      coLines.push('</div>');
+      pfLines.push('</div>');
     }
   }
 
-  coLines.push('</div>');
-  html.push(coLines.join(''));
+  pfLines.push('</div>');
+  html.push(pfLines.join(''));
 
   // ── 5. LINK TO CUSTOMS / NOTES ────────────────────────────────
   html.push(`<div class="link-card" onclick="showTab('customs')">
@@ -2898,20 +2925,39 @@ function toggleCarryOn(secId, itemId) {
   if (document.getElementById('tab-flights')?.classList.contains('active')) renderFlights();
 }
 
+// ── Cross-tab sync helpers ─────────────────────────────────────
+function syncPackingFromChecklist(label, checked) {
+  const norm = label.trim().toLowerCase();
+  let changed = false;
+  STATE.packSections.forEach(s => s.items.forEach(i => {
+    if (i.label.trim().toLowerCase() === norm) { i.checked = checked; changed = true; }
+  }));
+  if (changed) { saveToFirebase(); renderPacking(); }
+}
+function syncTaskFromChecklist(label, checked) {
+  const norm = label.trim().toLowerCase();
+  const t = STATE.tasks.find(t => t.label.trim().toLowerCase() === norm);
+  if (t) { t.status = checked ? 'done' : 'todo'; saveToFirebase(); renderTasks(); }
+}
+function syncChecklistFromPacking(label, checked) {
+  const norm = label.trim().toLowerCase();
+  const item = STATE.flightChecklist.find(i => i.label.trim().toLowerCase() === norm);
+  if (item) { item.checked = checked; saveToFirebase(); }
+}
+function syncChecklistFromTask(label, isDone) {
+  const norm = label.trim().toLowerCase();
+  const item = STATE.flightChecklist.find(i => i.label.trim().toLowerCase() === norm);
+  if (item) { item.checked = isDone; saveToFirebase(); }
+}
+
 // ── Pre-departure checklist ────────────────────────────────────
 function checkPfItem(id, checked) {
   const item = STATE.flightChecklist.find(i => i.id === id);
   if (!item) return;
   item.checked = checked;
   saveToFirebase();
-  // Update just the progress bar and row style without full re-render to avoid focus loss
-  const row = document.querySelector(`#pf-${id}`)?.closest('.pf-row');
-  if (row) row.classList.toggle('pf-done', checked);
-  const done = STATE.flightChecklist.filter(i => i.checked).length;
-  const total = STATE.flightChecklist.length;
-  const pct = total ? Math.round(done / total * 100) : 0;
-  const bar = document.querySelector('.countdown-card + .card .card-header + div > div, .card:has(.pf-cat) .card-header + div > div');
-  // Just re-render flights to update the bar cleanly
+  if (item.cat === 'Documents') syncPackingFromChecklist(item.label, checked);
+  else if (item.cat === 'Day of travel') syncTaskFromChecklist(item.label, checked);
   renderFlights();
 }
 function deletePfItem(id) {
@@ -3164,6 +3210,7 @@ function cycleTaskStatus(id) {
   const t = STATE.tasks.find(x => x.id === id);
   if (!t) return;
   t.status = t.status === 'todo' ? 'in-progress' : t.status === 'in-progress' ? 'done' : 'todo';
+  syncChecklistFromTask(t.label, t.status === 'done');
   saveToFirebase(); renderTasks();
 }
 function openAddTaskModal() {
