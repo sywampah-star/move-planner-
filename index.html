@@ -90,8 +90,8 @@
   [data-theme="dark"] [data-ce]:focus { background: var(--cream-dark) !important; outline: none; }
   [data-theme="dark"] .currency-select { background: var(--white); color: var(--text-primary); border-color: var(--border); }
 
-  /* FLIGHT SEARCH LINKS */
-  .search-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+  /* FLIGHT SEARCH */
+  .search-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .search-link-btn {
     display: flex; flex-direction: column; align-items: center; gap: 5px;
     padding: 12px 8px; border-radius: 10px; border: 1px solid var(--border-light);
@@ -101,12 +101,32 @@
   }
   .search-link-btn:hover { border-color: var(--terracotta); color: var(--terracotta); background: var(--terracotta-pale); }
   .search-link-icon { font-size: 20px; line-height: 1; }
-  .search-route-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 12px; font-weight: 500; color: var(--text-secondary);
-    background: var(--cream); border: 1px solid var(--border-light);
-    padding: 4px 10px; border-radius: 20px; margin-bottom: 10px;
+  .fs-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .fs-label { font-size: 11px; color: var(--text-muted); margin-bottom: 3px; display: block; }
+  .trip-type-toggle { display: flex; gap: 4px; margin-bottom: 10px; }
+  .trip-type-btn {
+    font-size: 12px; padding: 5px 12px; border-radius: 20px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-muted); cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
   }
+  .trip-type-btn.active { background: var(--terracotta); color: #fff; border-color: var(--terracotta); }
+  .pax-ctrl { display: flex; align-items: center; gap: 6px; }
+  .pax-btn {
+    width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border);
+    background: transparent; cursor: pointer; font-size: 16px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .pax-btn:hover { border-color: var(--terracotta); color: var(--terracotta); }
+  .swap-btn {
+    width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--cream); cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); flex-shrink: 0; transition: all 0.15s;
+  }
+  .swap-btn:hover { border-color: var(--terracotta); color: var(--terracotta); }
 
   /* FARE QUOTE LOG */
   .fare-row {
@@ -1656,8 +1676,9 @@ function applyRemoteData(data) {
     });
     if (plChanged) setTimeout(saveToFirebase, 200);
   }
-  if (data.flightLegs !== undefined) STATE.flightLegs = data.flightLegs || [];
-  if (data.fareQuotes  !== undefined) STATE.fareQuotes  = data.fareQuotes  || [];
+  if (data.flightLegs   !== undefined) STATE.flightLegs   = data.flightLegs   || [];
+  if (data.fareQuotes   !== undefined) STATE.fareQuotes   = data.fareQuotes   || [];
+  if (data.flightSearch !== undefined) STATE.flightSearch = { ...STATE.flightSearch, ...data.flightSearch };
   if (data.flightChecklist !== undefined) {
     STATE.flightChecklist = data.flightChecklist || [];
     const clMigrations = {
@@ -1735,6 +1756,7 @@ function saveToFirebase() {
       tasks:      STATE.tasks,
       flightLegs: STATE.flightLegs,
       fareQuotes: STATE.fareQuotes,
+      flightSearch: STATE.flightSearch,
       flightChecklist: STATE.flightChecklist,
       customsSections: STATE.customsSections,
       lastModified: Date.now(),
@@ -1915,6 +1937,7 @@ const SANDRA_DATA = {
     { id: 'fl2', type: 'flight', from: 'JFK', to: 'ITH', airline: 'Delta', depart: '2026-07-18T09:00', arrive: '2026-07-18T10:20', note: 'Regional jet' },
   ],
   fareQuotes: [],
+  flightSearch: { origin: 'ACC', dest: 'JFK', departDate: '2026-07-15', returnDate: '', tripType: 'one-way', cabinClass: 'economy', passengers: 1 },
   flightChecklist: [
     { id: 'fc1',  label: 'Passport (valid 6+ months)', cat: 'Documents', checked: false },
     { id: 'fc2',  label: 'F-1 visa stamp + I-20 form (original — never check this)', cat: 'Documents', checked: false },
@@ -1981,6 +2004,7 @@ const BLANK_DATA = {
   tasks: [],
   flightLegs: [],
   fareQuotes: [],
+  flightSearch: { origin: '', dest: '', departDate: '', returnDate: '', tripType: 'one-way', cabinClass: 'economy', passengers: 1 },
   flightChecklist: [
     { id: 'fc1',  label: 'Passport (valid 6+ months)', cat: 'Documents', checked: false },
     { id: 'fc2',  label: 'Visa + I-20 form (original — never check this)', cat: 'Documents', checked: false },
@@ -2759,105 +2783,130 @@ function renderFlights() {
     html.push('<div class="empty-state"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:10px;color:var(--text-muted)"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19.5 2.5c-1.5-1.5-3.5-1.5-5 0L11 6 2.8 3.2 1.4 4.6 8 11.1l-3.5 3.4H2l-1 1 3 1 1 3 1-1V16l3.5-3.4z"/></svg><p style="font-weight:500">No legs yet</p><p style="font-size:12px;color:var(--text-muted);margin-top:4px">Add your flights and stopovers to build your full journey.</p></div>');
   }
 
-  // ── 2a. FIND FLIGHTS ─────────────────────────────────────────
+  // ── 2a. FIND FLIGHTS (search form) ───────────────────────────
   {
-    const fLegs   = STATE.flightLegs.filter(l => l.type === 'flight');
-    const origin  = fLegs[0]?.from || '';
-    const dest    = fLegs[fLegs.length - 1]?.to || '';
-    const dateISO = fLegs[0]?.depart ? fLegs[0].depart.slice(0, 10) : '';
-    const dateYMD = dateISO.replace(/-/g, '');               // YYYYMMDD for Skyscanner
-    const enc     = (s) => encodeURIComponent(s);
-
-    const gUrl = origin && dest
-      ? `https://www.google.com/travel/flights/search?q=Flights+from+${enc(origin)}+to+${enc(dest)}${dateISO ? '+on+' + enc(dateISO) : ''}`
-      : 'https://www.google.com/travel/flights';
-    const kUrl = origin && dest
-      ? `https://www.kayak.com/flights/${origin}-${dest}${dateISO ? '/' + dateISO : ''}`
-      : 'https://www.kayak.com';
-    const sUrl = origin && dest
-      ? `https://www.skyscanner.net/transport/flights/${origin.toLowerCase()}/${dest.toLowerCase()}/${dateYMD || ''}/`
-      : 'https://www.skyscanner.net';
-
-    const routeBadge = origin && dest
-      ? `<span class="search-route-badge">✈ ${origin} → ${dest}${dateISO ? ' &nbsp;·&nbsp; ' + dateISO : ''}</span>`
-      : '';
+    const fs = STATE.flightSearch || {};
+    const tt = fs.tripType || 'one-way';
+    const pax = fs.passengers || 1;
+    const cls = fs.cabinClass || 'economy';
 
     html.push(`<div class="card" style="margin-top:16px">
       <div class="card-header" style="margin-bottom:10px">
         <div class="card-title">Find flights</div>
       </div>
-      ${routeBadge}
-      <div class="search-links">
-        <a class="search-link-btn" href="${gUrl}" target="_blank" rel="noopener">
-          <span class="search-link-icon">🔍</span>Google Flights
-        </a>
-        <a class="search-link-btn" href="${kUrl}" target="_blank" rel="noopener">
-          <span class="search-link-icon">🛩</span>Kayak
-        </a>
-        <a class="search-link-btn" href="${sUrl}" target="_blank" rel="noopener">
-          <span class="search-link-icon">✈</span>Skyscanner
-        </a>
+
+      <div class="trip-type-toggle">
+        <button class="trip-type-btn ${tt==='one-way'?'active':''}"    onclick="setTripType('one-way')">One way</button>
+        <button class="trip-type-btn ${tt==='round-trip'?'active':''}" onclick="setTripType('round-trip')">Round trip</button>
+        <button class="trip-type-btn ${tt==='multi-city'?'active':''}" onclick="setTripType('multi-city')">Multi-city</button>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Route and date pulled from your journey above. Update your legs to change the search.</div>
+
+      <div class="fs-row">
+        <div style="flex:1">
+          <span class="fs-label">From</span>
+          <input class="form-input" id="fs-origin" placeholder="e.g. ACC" value="${fs.origin||''}" style="width:100%;text-transform:uppercase">
+        </div>
+        <button class="swap-btn" onclick="swapOriginDest()" title="Swap">⇄</button>
+        <div style="flex:1">
+          <span class="fs-label">To</span>
+          <input class="form-input" id="fs-dest" placeholder="e.g. JFK" value="${fs.dest||''}" style="width:100%;text-transform:uppercase">
+        </div>
+      </div>
+
+      <div class="fs-row">
+        <div style="flex:1">
+          <span class="fs-label">Depart</span>
+          <input class="form-input" id="fs-depart" type="date" value="${fs.departDate||''}" style="width:100%">
+        </div>
+        ${tt==='round-trip' ? `<div style="flex:1">
+          <span class="fs-label">Return</span>
+          <input class="form-input" id="fs-return" type="date" value="${fs.returnDate||''}" style="width:100%">
+        </div>` : '<div style="flex:1"></div>'}
+      </div>
+
+      <div class="fs-row" style="margin-bottom:14px">
+        <div style="flex:2">
+          <span class="fs-label">Cabin class</span>
+          <select class="form-select" id="fs-class" style="width:100%">
+            <option value="economy"  ${cls==='economy' ?'selected':''}>Economy</option>
+            <option value="premium"  ${cls==='premium' ?'selected':''}>Premium Economy</option>
+            <option value="business" ${cls==='business'?'selected':''}>Business</option>
+            <option value="first"    ${cls==='first'   ?'selected':''}>First Class</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <span class="fs-label">Passengers</span>
+          <div class="pax-ctrl">
+            <button class="pax-btn" onclick="adjustPax(-1)">−</button>
+            <span id="fs-pax-label" style="min-width:54px;text-align:center;font-size:13px;font-weight:500">${pax} adult${pax!==1?'s':''}</span>
+            <button class="pax-btn" onclick="adjustPax(1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-links">
+        <button class="search-link-btn" onclick="openSearchEngine('google')">
+          <span class="search-link-icon">🔍</span>Google Flights
+        </button>
+        <button class="search-link-btn" onclick="openSearchEngine('kayak')">
+          <span class="search-link-icon">🛩</span>Kayak
+        </button>
+        <button class="search-link-btn" onclick="openSearchEngine('skyscanner')">
+          <span class="search-link-icon">✈</span>Skyscanner
+        </button>
+      </div>
     </div>`);
   }
 
-  // ── 2b. FARE QUOTE LOG ────────────────────────────────────────
+  // ── 2b. FARE TRACKER ─────────────────────────────────────────
   {
     const quotes = [...(STATE.fareQuotes || [])].sort((a, b) => new Date(b.dateSeen) - new Date(a.dateSeen));
-    const fLegs  = STATE.flightLegs.filter(l => l.type === 'flight');
-    const defRoute = fLegs.length
-      ? `${fLegs[0].from} → ${fLegs[fLegs.length - 1].to}`
-      : '';
+    const fs = STATE.flightSearch || {};
+    const defRoute = fs.origin && fs.dest ? `${fs.origin} → ${fs.dest}` : '';
 
     const fqLines = [`<div class="card" style="margin-top:16px">
-      <div class="card-header" style="margin-bottom:10px">
+      <div class="card-header" style="margin-bottom:4px">
         <div class="card-title">Fare tracker</div>
         <span style="font-size:12px;color:var(--text-muted)">log prices as you shop</span>
-      </div>`];
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Found a good price? Log it here, then use <b>→ Use this</b> to add it to your journey.</div>`];
 
     if (quotes.length) {
-      // Build trend: compare each quote to the next one with the same route
       const byRoute = {};
-      quotes.forEach(q => {
-        const k = q.route || 'any';
-        if (!byRoute[k]) byRoute[k] = [];
-        byRoute[k].push(q);
-      });
+      quotes.forEach(q => { const k = q.route||'any'; if (!byRoute[k]) byRoute[k]=[]; byRoute[k].push(q); });
 
       quotes.forEach(q => {
-        const siblings = byRoute[q.route || 'any'];
-        const myIdx    = siblings.indexOf(q);
-        const prev     = siblings[myIdx + 1];
+        const siblings = byRoute[q.route||'any'];
+        const prev     = siblings[siblings.indexOf(q) + 1];
         let trend = '';
         if (prev) {
           const diff = q.price - prev.price;
-          if (diff > 0)      trend = `<span class="fare-trend-up">▲ +${q.currency || '$'}${Math.abs(diff).toLocaleString()} vs prev</span>`;
-          else if (diff < 0) trend = `<span class="fare-trend-down">▼ −${q.currency || '$'}${Math.abs(diff).toLocaleString()} vs prev</span>`;
+          if (diff > 0)      trend = `<span class="fare-trend-up"> ▲ +${q.currency||'$'}${Math.abs(diff).toLocaleString()}</span>`;
+          else if (diff < 0) trend = `<span class="fare-trend-down"> ▼ −${q.currency||'$'}${Math.abs(diff).toLocaleString()}</span>`;
         }
         const linkHtml = q.link
-          ? `<a href="${q.link}" target="_blank" rel="noopener" style="font-size:11px;color:var(--terracotta);margin-left:4px">View →</a>`
+          ? `<a href="${q.link}" target="_blank" rel="noopener" style="font-size:11px;color:var(--terracotta);margin-left:6px">View →</a>`
           : '';
         fqLines.push(`<div class="fare-row">
-          <div class="fare-price">${q.currency || '$'}${Number(q.price).toLocaleString()}</div>
+          <div class="fare-price">${q.currency||'$'}${Number(q.price).toLocaleString()}</div>
           <div class="fare-meta">
-            ${q.airline ? `<span style="font-weight:500">${q.airline}</span> · ` : ''}${q.route || ''}
-            <br><span style="color:var(--text-muted)">${q.dateSeen || ''}</span>
-            ${trend}${linkHtml}
+            ${q.airline?`<span style="font-weight:500">${q.airline}</span> · `:''}${q.route||''}
+            <br><span style="color:var(--text-muted)">${q.dateSeen||''}</span>${trend}${linkHtml}
           </div>
-          <button class="btn btn-sm btn-icon" onclick="deleteFareQuote('${q.id}')" title="Remove">×</button>
+          <button class="btn btn-sm btn-primary" onclick="useFareQuote('${q.id}')" style="flex-shrink:0;font-size:11px">→ Use this</button>
+          <button class="btn btn-sm btn-icon" onclick="deleteFareQuote('${q.id}')" title="Remove" style="flex-shrink:0">×</button>
         </div>`);
       });
     } else {
-      fqLines.push(`<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:4px 0 8px">No quotes logged yet — add the first one below.</div>`);
+      fqLines.push(`<div style="font-size:12px;color:var(--text-muted);font-style:italic;padding:4px 0 8px">No quotes yet — search above, then log prices you find.</div>`);
     }
 
     fqLines.push(`<div class="fare-add-row">
-      <input class="form-input" id="fq-airline" placeholder="Airline" style="width:110px">
-      <input class="form-input" id="fq-route"   placeholder="Route" value="${defRoute}" style="width:110px">
-      <input class="form-input" id="fq-price"   placeholder="Price" type="number" min="0" style="width:90px">
-      <input class="form-input" id="fq-currency" placeholder="$" style="width:52px">
-      <input class="form-input" id="fq-link"    placeholder="Link (optional)" style="flex:1;min-width:80px">
+      <input class="form-input" id="fq-airline"  placeholder="Airline" style="width:100px">
+      <input class="form-input" id="fq-route"    placeholder="Route" value="${defRoute}" style="width:110px">
+      <input class="form-input" id="fq-price"    placeholder="Price" type="number" min="0" style="width:80px">
+      <input class="form-input" id="fq-currency" placeholder="$" style="width:46px">
+      <input class="form-input" id="fq-link"     placeholder="Link (optional)" style="flex:1;min-width:70px">
       <button class="btn btn-sm btn-primary" onclick="addFareQuote()">Save</button>
     </div>`);
     fqLines.push('</div>');
@@ -3071,6 +3120,91 @@ function toggleCarryOn(secId, itemId) {
   renderPacking();
   // refresh flights tab carry-on summary if visible
   if (document.getElementById('tab-flights')?.classList.contains('active')) renderFlights();
+}
+
+// ── Flight search form ─────────────────────────────────────────
+function saveFlightSearchInputs() {
+  const fs = STATE.flightSearch = STATE.flightSearch || {};
+  const o   = document.getElementById('fs-origin')?.value.trim().toUpperCase();
+  const d   = document.getElementById('fs-dest')?.value.trim().toUpperCase();
+  const dep = document.getElementById('fs-depart')?.value;
+  const ret = document.getElementById('fs-return')?.value;
+  const cls = document.getElementById('fs-class')?.value;
+  if (o   !== undefined) fs.origin     = o;
+  if (d   !== undefined) fs.dest       = d;
+  if (dep !== undefined) fs.departDate = dep;
+  if (ret !== undefined) fs.returnDate = ret;
+  if (cls !== undefined) fs.cabinClass = cls;
+}
+function setTripType(type) {
+  saveFlightSearchInputs();
+  STATE.flightSearch.tripType = type;
+  renderFlights();
+}
+function swapOriginDest() {
+  saveFlightSearchInputs();
+  const fs = STATE.flightSearch;
+  [fs.origin, fs.dest] = [fs.dest, fs.origin];
+  renderFlights();
+}
+function adjustPax(delta) {
+  const fs = STATE.flightSearch = STATE.flightSearch || {};
+  fs.passengers = Math.max(1, Math.min(9, (fs.passengers || 1) + delta));
+  const lbl = document.getElementById('fs-pax-label');
+  if (lbl) lbl.textContent = `${fs.passengers} adult${fs.passengers !== 1 ? 's' : ''}`;
+}
+function buildFlightSearchUrl(engine, fs) {
+  const o   = (fs.origin || '').toUpperCase();
+  const d   = (fs.dest   || '').toUpperCase();
+  const dep = fs.departDate || '';
+  const ret = fs.returnDate || '';
+  const pax = fs.passengers || 1;
+  const cls = fs.cabinClass || 'economy';
+  const rt  = fs.tripType === 'round-trip';
+  const depYMD = dep.replace(/-/g, '');
+  const retYMD = ret.replace(/-/g, '');
+
+  if (engine === 'google') {
+    const q = `flights from ${o||'origin'} to ${d||'destination'}${dep?' on '+dep:''}${rt&&ret?' returning '+ret:''}`;
+    return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;
+  }
+  if (engine === 'kayak') {
+    if (!o || !d || !dep) return 'https://www.kayak.com';
+    let url = `https://www.kayak.com/flights/${o}-${d}/${dep}`;
+    if (rt && ret) url += `/${ret}`;
+    url += `/${pax}adults/${cls}`;
+    return url;
+  }
+  if (engine === 'skyscanner') {
+    if (!o || !d || !dep) return 'https://www.skyscanner.net';
+    const sClass = { economy:'economy', premium:'premiumeconomy', business:'business', first:'first' }[cls] || 'economy';
+    const path = rt && retYMD
+      ? `${o.toLowerCase()}/${d.toLowerCase()}/${depYMD}/${retYMD}/`
+      : `${o.toLowerCase()}/${d.toLowerCase()}/${depYMD}/`;
+    return `https://www.skyscanner.net/transport/flights/${path}?adults=${pax}&cabinclass=${sClass}`;
+  }
+  return '#';
+}
+function openSearchEngine(engine) {
+  saveFlightSearchInputs();
+  saveToFirebase();
+  const url = buildFlightSearchUrl(engine, STATE.flightSearch);
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+function useFareQuote(id) {
+  const q = (STATE.fareQuotes || []).find(f => f.id === id);
+  if (!q) return;
+  // Parse "ACC → JFK" or "ACC - JFK" into from/to
+  const parts = (q.route || '').split(/\s*(?:→|->|-)\s*/);
+  editingLegId = null;
+  document.getElementById('leg-modal-title').textContent = 'Add flight leg';
+  document.getElementById('leg-from').value    = parts[0]?.trim().toUpperCase() || '';
+  document.getElementById('leg-to').value      = parts[1]?.trim().toUpperCase() || '';
+  document.getElementById('leg-airline').value = q.airline || '';
+  document.getElementById('leg-depart').value  = '';
+  document.getElementById('leg-arrive').value  = '';
+  document.getElementById('leg-note').value    = q.price ? `${q.currency||'$'}${Number(q.price).toLocaleString()} fare` : '';
+  openModal('add-leg-modal');
 }
 
 // ── Fare quote log ─────────────────────────────────────────────
