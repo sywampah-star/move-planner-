@@ -127,6 +127,10 @@
     color: var(--text-muted); flex-shrink: 0; transition: all 0.15s;
   }
   .swap-btn:hover { border-color: var(--terracotta); color: var(--terracotta); }
+  .mc-leg { display: flex; gap: 6px; align-items: flex-end; padding: 10px 0; border-bottom: 1px solid var(--border-light); }
+  .mc-leg:first-child { padding-top: 0; }
+  .mc-leg:last-of-type { border-bottom: none; }
+  .mc-leg-num { font-size: 10px; font-weight: 600; color: var(--text-muted); min-width: 18px; padding-bottom: 8px; }
 
   /* FARE QUOTE LOG */
   .fare-row {
@@ -1937,7 +1941,7 @@ const SANDRA_DATA = {
     { id: 'fl2', type: 'flight', from: 'JFK', to: 'ITH', airline: 'Delta', depart: '2026-07-18T09:00', arrive: '2026-07-18T10:20', note: 'Regional jet' },
   ],
   fareQuotes: [],
-  flightSearch: { origin: 'ACC', dest: 'JFK', departDate: '2026-07-15', returnDate: '', tripType: 'one-way', cabinClass: 'economy', passengers: 1 },
+  flightSearch: { origin: 'ACC', dest: 'JFK', departDate: '2026-07-15', returnDate: '', tripType: 'one-way', cabinClass: 'economy', passengers: 1, multiCityLegs: [{ from: 'ACC', to: 'JFK', depart: '2026-07-15' }, { from: 'JFK', to: 'ITH', depart: '2026-07-18' }] },
   flightChecklist: [
     { id: 'fc1',  label: 'Passport (valid 6+ months)', cat: 'Documents', checked: false },
     { id: 'fc2',  label: 'F-1 visa stamp + I-20 form (original — never check this)', cat: 'Documents', checked: false },
@@ -2004,7 +2008,7 @@ const BLANK_DATA = {
   tasks: [],
   flightLegs: [],
   fareQuotes: [],
-  flightSearch: { origin: '', dest: '', departDate: '', returnDate: '', tripType: 'one-way', cabinClass: 'economy', passengers: 1 },
+  flightSearch: { origin: '', dest: '', departDate: '', returnDate: '', tripType: 'one-way', cabinClass: 'economy', passengers: 1, multiCityLegs: [{ from: '', to: '', depart: '' }, { from: '', to: '', depart: '' }] },
   flightChecklist: [
     { id: 'fc1',  label: 'Passport (valid 6+ months)', cat: 'Documents', checked: false },
     { id: 'fc2',  label: 'Visa + I-20 form (original — never check this)', cat: 'Documents', checked: false },
@@ -2785,54 +2789,23 @@ function renderFlights() {
 
   // ── 2a. FIND FLIGHTS (search form) ───────────────────────────
   {
-    const fs = STATE.flightSearch || {};
-    const tt = fs.tripType || 'one-way';
+    const fs  = STATE.flightSearch || {};
+    const tt  = fs.tripType || 'one-way';
     const pax = fs.passengers || 1;
     const cls = fs.cabinClass || 'economy';
+    const mcLegs = fs.multiCityLegs?.length >= 2 ? fs.multiCityLegs
+      : [{ from: '', to: '', depart: '' }, { from: '', to: '', depart: '' }];
 
-    html.push(`<div class="card" style="margin-top:16px">
-      <div class="card-header" style="margin-bottom:10px">
-        <div class="card-title">Find flights</div>
-      </div>
+    const classOpts = ['economy','premium','business','first'];
+    const classLabels = { economy: 'Economy', premium: 'Premium Economy', business: 'Business', first: 'First Class' };
+    const clsSel = classOpts.map(v => `<option value="${v}"${cls===v?' selected':''}>${classLabels[v]}</option>`).join('');
 
-      <div class="trip-type-toggle">
-        <button class="trip-type-btn ${tt==='one-way'?'active':''}"    onclick="setTripType('one-way')">One way</button>
-        <button class="trip-type-btn ${tt==='round-trip'?'active':''}" onclick="setTripType('round-trip')">Round trip</button>
-        <button class="trip-type-btn ${tt==='multi-city'?'active':''}" onclick="setTripType('multi-city')">Multi-city</button>
-      </div>
-
-      <div class="fs-row">
-        <div style="flex:1">
-          <span class="fs-label">From</span>
-          <input class="form-input" id="fs-origin" placeholder="e.g. ACC" value="${fs.origin||''}" style="width:100%;text-transform:uppercase">
-        </div>
-        <button class="swap-btn" onclick="swapOriginDest()" title="Swap">⇄</button>
-        <div style="flex:1">
-          <span class="fs-label">To</span>
-          <input class="form-input" id="fs-dest" placeholder="e.g. JFK" value="${fs.dest||''}" style="width:100%;text-transform:uppercase">
-        </div>
-      </div>
-
-      <div class="fs-row">
-        <div style="flex:1">
-          <span class="fs-label">Depart</span>
-          <input class="form-input" id="fs-depart" type="date" value="${fs.departDate||''}" style="width:100%">
-        </div>
-        ${tt==='round-trip' ? `<div style="flex:1">
-          <span class="fs-label">Return</span>
-          <input class="form-input" id="fs-return" type="date" value="${fs.returnDate||''}" style="width:100%">
-        </div>` : '<div style="flex:1"></div>'}
-      </div>
-
-      <div class="fs-row" style="margin-bottom:14px">
+    // shared bottom: class + pax + search buttons
+    const bottomHtml = `
+      <div class="fs-row" style="margin-bottom:14px;margin-top:${tt==='multi-city'?'10':'0'}px">
         <div style="flex:2">
           <span class="fs-label">Cabin class</span>
-          <select class="form-select" id="fs-class" style="width:100%">
-            <option value="economy"  ${cls==='economy' ?'selected':''}>Economy</option>
-            <option value="premium"  ${cls==='premium' ?'selected':''}>Premium Economy</option>
-            <option value="business" ${cls==='business'?'selected':''}>Business</option>
-            <option value="first"    ${cls==='first'   ?'selected':''}>First Class</option>
-          </select>
+          <select class="form-select" id="fs-class" style="width:100%">${clsSel}</select>
         </div>
         <div style="flex:1">
           <span class="fs-label">Passengers</span>
@@ -2843,18 +2816,71 @@ function renderFlights() {
           </div>
         </div>
       </div>
-
       <div class="search-links">
-        <button class="search-link-btn" onclick="openSearchEngine('google')">
-          <span class="search-link-icon">🔍</span>Google Flights
-        </button>
-        <button class="search-link-btn" onclick="openSearchEngine('kayak')">
-          <span class="search-link-icon">🛩</span>Kayak
-        </button>
-        <button class="search-link-btn" onclick="openSearchEngine('skyscanner')">
-          <span class="search-link-icon">✈</span>Skyscanner
-        </button>
+        <button class="search-link-btn" onclick="openSearchEngine('google')"><span class="search-link-icon">🔍</span>Google Flights</button>
+        <button class="search-link-btn" onclick="openSearchEngine('kayak')"><span class="search-link-icon">🛩</span>Kayak</button>
+        <button class="search-link-btn" onclick="openSearchEngine('skyscanner')"><span class="search-link-icon">✈</span>Skyscanner</button>
+      </div>`;
+
+    let formHtml = '';
+
+    if (tt === 'multi-city') {
+      // Multi-city: one row per leg
+      formHtml = mcLegs.map((leg, i) => `
+        <div class="mc-leg">
+          <span class="mc-leg-num">${i + 1}</span>
+          <div style="flex:1">
+            <span class="fs-label">From</span>
+            <input class="form-input" id="mc-from-${i}" placeholder="e.g. ACC" value="${leg.from||''}" style="width:100%;text-transform:uppercase">
+          </div>
+          <div style="flex:1">
+            <span class="fs-label">To</span>
+            <input class="form-input" id="mc-to-${i}" placeholder="e.g. JFK" value="${leg.to||''}" style="width:100%;text-transform:uppercase" oninput="chainMCLeg(${i})">
+          </div>
+          <div style="flex:1">
+            <span class="fs-label">Depart</span>
+            <input class="form-input" id="mc-dep-${i}" type="date" value="${leg.depart||''}" style="width:100%">
+          </div>
+          ${mcLegs.length > 2 ? `<button class="btn btn-sm btn-icon" style="margin-bottom:2px;flex-shrink:0" onclick="removeMCLeg(${i})" title="Remove leg">×</button>` : '<div style="width:28px"></div>'}
+        </div>`).join('');
+      formHtml += `<button class="btn btn-sm" onclick="addMCLeg()" style="margin:8px 0 2px">+ Add city</button>`;
+    } else {
+      // One-way or round-trip
+      formHtml = `
+        <div class="fs-row">
+          <div style="flex:1">
+            <span class="fs-label">From</span>
+            <input class="form-input" id="fs-origin" placeholder="e.g. ACC" value="${fs.origin||''}" style="width:100%;text-transform:uppercase">
+          </div>
+          <button class="swap-btn" onclick="swapOriginDest()" title="Swap">⇄</button>
+          <div style="flex:1">
+            <span class="fs-label">To</span>
+            <input class="form-input" id="fs-dest" placeholder="e.g. JFK" value="${fs.dest||''}" style="width:100%;text-transform:uppercase">
+          </div>
+        </div>
+        <div class="fs-row">
+          <div style="flex:1">
+            <span class="fs-label">Depart</span>
+            <input class="form-input" id="fs-depart" type="date" value="${fs.departDate||''}" style="width:100%">
+          </div>
+          ${tt==='round-trip' ? `<div style="flex:1">
+            <span class="fs-label">Return</span>
+            <input class="form-input" id="fs-return" type="date" value="${fs.returnDate||''}" style="width:100%">
+          </div>` : '<div style="flex:1"></div>'}
+        </div>`;
+    }
+
+    html.push(`<div class="card" style="margin-top:16px">
+      <div class="card-header" style="margin-bottom:10px">
+        <div class="card-title">Find flights</div>
       </div>
+      <div class="trip-type-toggle">
+        <button class="trip-type-btn ${tt==='one-way'?'active':''}"    onclick="setTripType('one-way')">One way</button>
+        <button class="trip-type-btn ${tt==='round-trip'?'active':''}" onclick="setTripType('round-trip')">Round trip</button>
+        <button class="trip-type-btn ${tt==='multi-city'?'active':''}" onclick="setTripType('multi-city')">Multi-city</button>
+      </div>
+      ${formHtml}
+      ${bottomHtml}
     </div>`);
   }
 
@@ -3125,15 +3151,28 @@ function toggleCarryOn(secId, itemId) {
 // ── Flight search form ─────────────────────────────────────────
 function saveFlightSearchInputs() {
   const fs = STATE.flightSearch = STATE.flightSearch || {};
-  const o   = document.getElementById('fs-origin')?.value.trim().toUpperCase();
-  const d   = document.getElementById('fs-dest')?.value.trim().toUpperCase();
-  const dep = document.getElementById('fs-depart')?.value;
-  const ret = document.getElementById('fs-return')?.value;
+  const tt = fs.tripType || 'one-way';
+  if (tt === 'multi-city') {
+    const legs = fs.multiCityLegs || [];
+    legs.forEach((leg, i) => {
+      const f = document.getElementById(`mc-from-${i}`)?.value.trim().toUpperCase();
+      const t = document.getElementById(`mc-to-${i}`)?.value.trim().toUpperCase();
+      const d = document.getElementById(`mc-dep-${i}`)?.value;
+      if (f !== undefined) leg.from   = f;
+      if (t !== undefined) leg.to     = t;
+      if (d !== undefined) leg.depart = d;
+    });
+  } else {
+    const o   = document.getElementById('fs-origin')?.value.trim().toUpperCase();
+    const d   = document.getElementById('fs-dest')?.value.trim().toUpperCase();
+    const dep = document.getElementById('fs-depart')?.value;
+    const ret = document.getElementById('fs-return')?.value;
+    if (o   !== undefined) fs.origin     = o;
+    if (d   !== undefined) fs.dest       = d;
+    if (dep !== undefined) fs.departDate = dep;
+    if (ret !== undefined) fs.returnDate = ret;
+  }
   const cls = document.getElementById('fs-class')?.value;
-  if (o   !== undefined) fs.origin     = o;
-  if (d   !== undefined) fs.dest       = d;
-  if (dep !== undefined) fs.departDate = dep;
-  if (ret !== undefined) fs.returnDate = ret;
   if (cls !== undefined) fs.cabinClass = cls;
 }
 function setTripType(type) {
@@ -3153,14 +3192,55 @@ function adjustPax(delta) {
   const lbl = document.getElementById('fs-pax-label');
   if (lbl) lbl.textContent = `${fs.passengers} adult${fs.passengers !== 1 ? 's' : ''}`;
 }
+function addMCLeg() {
+  saveFlightSearchInputs();
+  const fs   = STATE.flightSearch;
+  const legs = fs.multiCityLegs || [];
+  const prev = legs[legs.length - 1];
+  legs.push({ from: prev?.to || '', to: '', depart: '' });
+  fs.multiCityLegs = legs;
+  renderFlights();
+}
+function removeMCLeg(idx) {
+  saveFlightSearchInputs();
+  const fs = STATE.flightSearch;
+  if ((fs.multiCityLegs || []).length <= 2) return;
+  fs.multiCityLegs.splice(idx, 1);
+  renderFlights();
+}
+function chainMCLeg(idx) {
+  const toVal   = document.getElementById(`mc-to-${idx}`)?.value.trim().toUpperCase();
+  const nextFrom = document.getElementById(`mc-from-${idx + 1}`);
+  if (nextFrom && toVal) nextFrom.value = toVal;
+}
 function buildFlightSearchUrl(engine, fs) {
+  const pax = fs.passengers || 1;
+  const cls = fs.cabinClass || 'economy';
+  const tt  = fs.tripType || 'one-way';
+  const sClass = { economy:'economy', premium:'premiumeconomy', business:'business', first:'first' }[cls] || 'economy';
+
+  if (tt === 'multi-city') {
+    const legs = (fs.multiCityLegs || []).filter(l => l.from && l.to && l.depart);
+    if (!legs.length) return engine === 'google' ? 'https://www.google.com/travel/flights' : engine === 'kayak' ? 'https://www.kayak.com' : 'https://www.skyscanner.net';
+    if (engine === 'google') {
+      const q = legs.map(l => `${l.from} to ${l.to} on ${l.depart}`).join(', ');
+      return `https://www.google.com/travel/flights?q=${encodeURIComponent('multi-city flights ' + q)}`;
+    }
+    if (engine === 'kayak') {
+      const path = legs.map(l => `${l.from}-${l.to}/${l.depart}`).join('/');
+      return `https://www.kayak.com/flights/${path}/${pax}adults/${cls}`;
+    }
+    if (engine === 'skyscanner') {
+      // Skyscanner doesn't support multi-city via URL params; link to their multi-city page
+      return `https://www.skyscanner.net/flights/multicity/?adults=${pax}&cabinclass=${sClass}`;
+    }
+  }
+
   const o   = (fs.origin || '').toUpperCase();
   const d   = (fs.dest   || '').toUpperCase();
   const dep = fs.departDate || '';
   const ret = fs.returnDate || '';
-  const pax = fs.passengers || 1;
-  const cls = fs.cabinClass || 'economy';
-  const rt  = fs.tripType === 'round-trip';
+  const rt  = tt === 'round-trip';
   const depYMD = dep.replace(/-/g, '');
   const retYMD = ret.replace(/-/g, '');
 
@@ -3172,15 +3252,11 @@ function buildFlightSearchUrl(engine, fs) {
     if (!o || !d || !dep) return 'https://www.kayak.com';
     let url = `https://www.kayak.com/flights/${o}-${d}/${dep}`;
     if (rt && ret) url += `/${ret}`;
-    url += `/${pax}adults/${cls}`;
-    return url;
+    return url + `/${pax}adults/${cls}`;
   }
   if (engine === 'skyscanner') {
     if (!o || !d || !dep) return 'https://www.skyscanner.net';
-    const sClass = { economy:'economy', premium:'premiumeconomy', business:'business', first:'first' }[cls] || 'economy';
-    const path = rt && retYMD
-      ? `${o.toLowerCase()}/${d.toLowerCase()}/${depYMD}/${retYMD}/`
-      : `${o.toLowerCase()}/${d.toLowerCase()}/${depYMD}/`;
+    const path = rt && retYMD ? `${o.toLowerCase()}/${d.toLowerCase()}/${depYMD}/${retYMD}/` : `${o.toLowerCase()}/${d.toLowerCase()}/${depYMD}/`;
     return `https://www.skyscanner.net/transport/flights/${path}?adults=${pax}&cabinclass=${sClass}`;
   }
   return '#';
